@@ -36,8 +36,8 @@ export default function Pending() {
 
     if (searchTerm) {
       filtered = filtered.filter(e =>
-        e.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        e.sender.toLowerCase().includes(searchTerm.toLowerCase())
+        (e.subject || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (e.sender || "").toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -54,6 +54,15 @@ export default function Pending() {
     toast({
       title: "E-mail classificado",
       description: `E-mail movido para categoria: ${category}`,
+    });
+  };
+
+  const handleArchive = (id: string) => {
+    updateEmail(id, { status: 'archived' });
+    loadEmails();
+    toast({
+      title: "E-mail arquivado",
+      description: "E-mail movido para arquivados.",
     });
   };
 
@@ -124,46 +133,60 @@ export default function Pending() {
           filteredEmails.map((email, index) => (
             <Card key={email.id} className="hover:shadow-lg transition-shadow animate-slide-up" style={{ animationDelay: `${index * 0.05}s` }}>
               <CardContent className="p-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-semibold text-lg">{email.subject}</h3>
-                      <Badge className={getPriorityColor(email.priority)}>
-                        {email.priority}
-                      </Badge>
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-semibold text-lg">{email.subject}</h3>
+                        <Badge className={getPriorityColor(email.priority)}>
+                          {email.priority}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        De: <span className="font-medium">{email.sender}</span>
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(email.date).toLocaleDateString('pt-BR', {
+                          day: '2-digit',
+                          month: 'long',
+                          year: 'numeric'
+                        })}
+                      </p>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      De: <span className="font-medium">{email.sender}</span>
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {new Date(email.date).toLocaleDateString('pt-BR', {
-                        day: '2-digit',
-                        month: 'long',
-                        year: 'numeric'
-                      })}
-                    </p>
-                  </div>
-                  <div className="flex flex-col gap-2 md:items-end">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => navigate(`/email/${email.id}`)}
+                      className="w-full md:w-auto"
                     >
                       <Eye className="h-4 w-4 mr-2" />
                       Ver Detalhes
                     </Button>
-                    <Select onValueChange={(value) => handleClassify(email.id, value)}>
-                      <SelectTrigger className="w-full md:w-[200px]">
-                        <SelectValue placeholder="Classificar" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Trabalho">Trabalho</SelectItem>
-                        <SelectItem value="Pessoal">Pessoal</SelectItem>
-                        <SelectItem value="Financeiro">Financeiro</SelectItem>
-                        <SelectItem value="Suporte">Suporte</SelectItem>
-                        <SelectItem value="Marketing">Marketing</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  </div>
+
+                  <div className="flex flex-col md:flex-row gap-3 items-start md:items-center">
+                    <span className="text-sm font-medium text-muted-foreground">Classificar como:</span>
+                    <div className="flex flex-1 gap-2 flex-wrap">
+                      <Select onValueChange={(value) => handleClassify(email.id, value)}>
+                        <SelectTrigger className="w-full md:w-[200px]">
+                          <SelectValue placeholder="Selecionar categoria..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Trabalho">Trabalho</SelectItem>
+                          <SelectItem value="Pessoal">Pessoal</SelectItem>
+                          <SelectItem value="Financeiro">Financeiro</SelectItem>
+                          <SelectItem value="Suporte">Suporte</SelectItem>
+                          <SelectItem value="Marketing">Marketing</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleArchive(email.id)}
+                      >
+                        Arquivar
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </CardContent>

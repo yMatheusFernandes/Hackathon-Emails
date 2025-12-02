@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Mail, Clock, CheckCircle, Archive, AlertTriangle, TrendingUp } from "lucide-react";
 import { getEmailStats, getEmails } from "@/lib/emailStorage";
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 const COLORS = {
   pending: 'hsl(var(--warning))',
@@ -12,6 +13,7 @@ const COLORS = {
 };
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     total: 0,
     pending: 0,
@@ -30,7 +32,6 @@ export default function Dashboard() {
 
     const emails = getEmails();
     
-    // Data for status pie chart
     const statusData = [
       { name: 'Pendentes', value: emailStats.pending, color: COLORS.pending },
       { name: 'Classificados', value: emailStats.classified, color: COLORS.classified },
@@ -38,7 +39,6 @@ export default function Dashboard() {
     ];
     setChartData(statusData);
 
-    // Data for daily trend (last 7 days)
     const last7Days = Array.from({ length: 7 }, (_, i) => {
       const date = new Date();
       date.setDate(date.getDate() - (6 - i));
@@ -64,6 +64,7 @@ export default function Dashboard() {
       icon: Mail,
       color: "text-primary",
       bgColor: "bg-primary/10",
+      filterStatus: null,
     },
     {
       title: "Pendentes",
@@ -71,6 +72,7 @@ export default function Dashboard() {
       icon: Clock,
       color: "text-warning",
       bgColor: "bg-warning/10",
+      filterStatus: "pending",
     },
     {
       title: "Classificados",
@@ -78,6 +80,7 @@ export default function Dashboard() {
       icon: CheckCircle,
       color: "text-success",
       bgColor: "bg-success/10",
+      filterStatus: "classified",
     },
     {
       title: "Arquivados",
@@ -85,6 +88,7 @@ export default function Dashboard() {
       icon: Archive,
       color: "text-muted-foreground",
       bgColor: "bg-muted",
+      filterStatus: "archived",
     },
     {
       title: "Urgentes",
@@ -92,6 +96,7 @@ export default function Dashboard() {
       icon: AlertTriangle,
       color: "text-destructive",
       bgColor: "bg-destructive/10",
+      filterStatus: "urgent",
     },
     {
       title: "Últimos 7 dias",
@@ -99,8 +104,21 @@ export default function Dashboard() {
       icon: TrendingUp,
       color: "text-primary",
       bgColor: "bg-primary/10",
+      filterStatus: "recent",
     },
   ];
+
+  const handleCardClick = (filterStatus: string | null, cardTitle: string) => {
+    if (cardTitle === "Arquivados") {
+      navigate("/archived");
+    } else if (cardTitle === "Pendentes") {
+      navigate("/pending");
+    } else if (filterStatus) {
+      navigate(`/history?status=${filterStatus}`);
+    } else {
+      navigate("/history");
+    }
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -111,7 +129,12 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {statCards.map((stat, index) => (
-          <Card key={stat.title} className="hover:shadow-lg transition-shadow animate-slide-up" style={{ animationDelay: `${index * 0.1}s` }}>
+          <Card 
+            key={stat.title} 
+            className="hover:shadow-lg transition-shadow animate-slide-up cursor-pointer"
+            style={{ animationDelay: `${index * 0.1}s` }}
+            onClick={() => handleCardClick(stat.filterStatus, stat.title)}
+          >
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 {stat.title}

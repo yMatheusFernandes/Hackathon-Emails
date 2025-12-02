@@ -1,51 +1,104 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getEmails, type Email } from "@/lib/emailStorage";
-import { Search, Filter, Eye, Mail } from "lucide-react";
+import { Search, Filter, Eye, Mail, X } from "lucide-react";
+
+function useQuery() {
+  return new URLSearchParams(useLocation().search);
+}
 
 export default function History() {
+  const navigate = useNavigate();
+  const query = useQuery();
+  const urlStatus = query.get("status") ?? "all";
+  
   const [emails, setEmails] = useState<Email[]>([]);
   const [filteredEmails, setFilteredEmails] = useState<Email[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>(urlStatus);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const navigate = useNavigate();
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
 
   useEffect(() => {
     const allEmails = getEmails();
     setEmails(allEmails);
-  }, []);
+    setStatusFilter(urlStatus);
+  }, [urlStatus]);
 
   useEffect(() => {
     filterEmails();
-  }, [emails, searchTerm, statusFilter, categoryFilter]);
+  }, [emails, searchTerm, statusFilter, categoryFilter, priorityFilter, startDate, endDate]);
 
   const filterEmails = () => {
     let filtered = [...emails];
 
     if (searchTerm) {
       filtered = filtered.filter(e =>
-        e.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        e.sender.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        e.content.toLowerCase().includes(searchTerm.toLowerCase())
+        (e.subject || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (e.sender || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (e.content || "").toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     if (statusFilter !== "all") {
-      filtered = filtered.filter(e => e.status === statusFilter);
+      if (statusFilter === "urgent") {
+        filtered = filtered.filter(e =>
+          e.status === "urgent" ||
+          e.priority === "urgent" ||
+          e.priority === "high"
+        );
+      } else if (statusFilter === "recent") {
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - 7);
+        filtered = filtered.filter(e => {
+          try { return new Date(e.date) >= cutoff; } catch { return false; }
+        });
+      } else {
+        filtered = filtered.filter(e => e.status === statusFilter);
+      }
     }
 
     if (categoryFilter !== "all") {
       filtered = filtered.filter(e => e.category === categoryFilter);
     }
 
+    if (priorityFilter !== "all") {
+      filtered = filtered.filter(e => e.priority === priorityFilter);
+    }
+
+    if (startDate) {
+      const s = new Date(startDate);
+      filtered = filtered.filter(e => {
+        try { return new Date(e.date) >= s; } catch { return false; }
+      });
+    }
+    if (endDate) {
+      const e = new Date(endDate);
+      e.setHours(23,59,59,999);
+      filtered = filtered.filter(item => {
+        try { return new Date(item.date) <= e; } catch { return false; }
+      });
+    }
+
     filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     setFilteredEmails(filtered);
+  };
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setStatusFilter("all");
+    setCategoryFilter("all");
+    setPriorityFilter("all");
+    setStartDate("");
+    setEndDate("");
+    navigate("/history");
   };
 
   const getStatusColor = (status: Email['status']) => {
@@ -53,7 +106,7 @@ export default function History() {
       pending: 'bg-warning/20 text-warning',
       classified: 'bg-success/20 text-success',
       archived: 'bg-muted text-muted-foreground',
-    };
+    } as Record<string, string>;
     return colors[status];
   };
 
@@ -63,17 +116,17 @@ export default function History() {
       medium: 'bg-primary/20 text-primary',
       high: 'bg-warning/20 text-warning',
       urgent: 'bg-destructive/20 text-destructive',
-    };
+    } as Record<string, string>;
     return colors[priority];
   };
 
-  const statusLabels = {
+  const statusLabels: Record<string, string> = {
     pending: 'Pendente',
     classified: 'Classificado',
     archived: 'Arquivado',
   };
 
-  const priorityLabels = {
+  const priorityLabels: Record<string, string> = {
     low: 'Baixa',
     medium: 'Média',
     high: 'Alta',
@@ -82,13 +135,23 @@ export default function History() {
 
   const categories = Array.from(new Set(emails.map(e => e.category).filter(Boolean)));
 
+  const hasActiveFilters = statusFilter !== "all" || categoryFilter !== "all" || priorityFilter !== "all" || searchTerm !== "" || startDate !== "" || endDate !== "";
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground mb-2">Histórico de E-mails</h1>
-        <p className="text-muted-foreground">
-          Visualize e busque todos os e-mails do sistema
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Histórico de E-mails</h1>
+          <p className="text-muted-foreground">
+            Visualize e busque todos os e-mails do sistema
+          </p>
+        </div>
+        {hasActiveFilters && (
+          <Button variant="outline" size="sm" onClick={clearFilters}>
+            <X className="h-4 w-4 mr-2" />
+            Limpar filtros
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -120,6 +183,18 @@ export default function History() {
                 <SelectItem value="archived">Arquivados</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+              <SelectTrigger className="flex-1">
+                <SelectValue placeholder="Urgência" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as Urgências</SelectItem>
+                <SelectItem value="low">Baixa</SelectItem>
+                <SelectItem value="medium">Média</SelectItem>
+                <SelectItem value="high">Alta</SelectItem>
+                <SelectItem value="urgent">Urgente</SelectItem>
+              </SelectContent>
+            </Select>
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
               <SelectTrigger className="flex-1">
                 <SelectValue placeholder="Categoria" />
@@ -131,6 +206,16 @@ export default function History() {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs text-muted-foreground">Data inicial</label>
+              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Data final</label>
+              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            </div>
           </div>
           <div className="text-sm text-muted-foreground">
             Mostrando {filteredEmails.length} de {emails.length} e-mails
