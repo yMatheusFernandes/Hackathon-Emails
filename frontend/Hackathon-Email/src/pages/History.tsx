@@ -15,8 +15,16 @@ function useQuery() {
 export default function History() {
   const navigate = useNavigate();
   const query = useQuery();
-  const urlStatus = query.get("status") ?? "all";
-  
+  const location = useLocation();
+  // respect ?status=... but also allow visiting a route that contains "archiv" to open archived filter
+  const urlStatus = query.get("status") ?? (location.pathname.includes("archiv") ? "archived" : "all");
+  // read additional query params so dashboard can open /history?priority=urgent or /history?search=...
+  const urlPriority = query.get("priority") ?? "all";
+  const urlCategory = query.get("category") ?? "all";
+  const urlSearch = query.get("search") ?? "";
+  const urlStart = query.get("start") ?? "";
+  const urlEnd = query.get("end") ?? "";
+
   const [emails, setEmails] = useState<Email[]>([]);
   const [filteredEmails, setFilteredEmails] = useState<Email[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -26,11 +34,17 @@ export default function History() {
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
 
+  // apply query params whenever the location/search changes
   useEffect(() => {
     const allEmails = getEmails();
     setEmails(allEmails);
     setStatusFilter(urlStatus);
-  }, [urlStatus]);
+    setPriorityFilter(urlPriority);
+    setCategoryFilter(urlCategory);
+    setSearchTerm(urlSearch);
+    setStartDate(urlStart);
+    setEndDate(urlEnd);
+  }, [location.search, location.pathname]);
 
   useEffect(() => {
     filterEmails();
@@ -141,19 +155,24 @@ export default function History() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Histórico de E-mails</h1>
-          <p className="text-muted-foreground">
-            Visualize e busque todos os e-mails do sistema
-          </p>
-        </div>
-        {hasActiveFilters && (
-          <Button variant="outline" size="sm" onClick={clearFilters}>
-            <X className="h-4 w-4 mr-2" />
-            Limpar filtros
+           <h1 className="text-3xl font-bold text-foreground mb-2">Histórico de E-mails</h1>
+           <p className="text-muted-foreground">
+             Visualize e busque todos os e-mails do sistema
+           </p>
+         </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => navigate("/history?status=archived")}>
+            Arquivados
           </Button>
-        )}
-      </div>
-
+          {hasActiveFilters && (
+            <Button variant="outline" size="sm" onClick={clearFilters}>
+              <X className="h-4 w-4 mr-2" />
+              Limpar filtros
+            </Button>
+          )}
+        </div>
+       </div>
+       
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -282,4 +301,4 @@ export default function History() {
       </div>
     </div>
   );
-}
+} 
