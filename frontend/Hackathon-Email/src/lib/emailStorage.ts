@@ -7,11 +7,16 @@ export interface Email {
   status: 'pending' | 'classified' | 'archived';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   category?: string;
+  state: string;          // <- Adicionado
   date: string;
   tags?: string[];
 }
 
 const STORAGE_KEY = 'email_manager_data';
+
+// Lista de UFs para geração dos mocks
+const states = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
+"PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
 
 const generateMockEmails = (): Email[] => {
   const statuses: Email['status'][] = ['pending', 'classified', 'archived'];
@@ -25,7 +30,7 @@ const generateMockEmails = (): Email[] => {
   for (let i = 0; i < 25; i++) {
     const date = new Date(now);
     date.setDate(date.getDate() - Math.floor(Math.random() * 30));
-    
+
     emails.push({
       id: `email-${i + 1}`,
       subject: `Assunto do E-mail ${i + 1}`,
@@ -35,6 +40,7 @@ const generateMockEmails = (): Email[] => {
       status: statuses[Math.floor(Math.random() * statuses.length)],
       priority: priorities[Math.floor(Math.random() * priorities.length)],
       category: Math.random() > 0.3 ? categories[Math.floor(Math.random() * categories.length)] : undefined,
+      state: states[Math.floor(Math.random() * states.length)],   // <- atribuição automática
       date: date.toISOString(),
       tags: Math.random() > 0.5 ? ['importante', 'revisar'] : [],
     });
@@ -64,6 +70,7 @@ export const addEmail = (email: Omit<Email, 'id' | 'date'>): Email => {
     id: `email-${Date.now()}`,
     date: new Date().toISOString(),
   };
+
   emails.unshift(newEmail);
   saveEmails(emails);
   return newEmail;

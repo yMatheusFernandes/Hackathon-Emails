@@ -47,6 +47,12 @@ import {
   Cell,
 } from "recharts";
 
+const estadosBrasil = [
+  "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA",
+  "MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN",
+  "RS","RO","RR","SC","SP","SE","TO"
+];
+
 const COLORS = {
   pending: "hsl(var(--warning))",
   classified: "hsl(var(--success))",
@@ -84,27 +90,33 @@ export default function Dashboard() {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [stateFilter, setStateFilter] = useState("all"); // NOVO: filtro de estado
 
-  // Conta os e-mails conforme filtros
- const calculateCardValue = (filters: Record<string, string>) => {
-  return emails.filter((email) => {
-    const emailCategory = email.category?.toString().trim().toLowerCase() || "";
+  // Conta os e-mails conforme filtros, incluindo o estado agora
+  const calculateCardValue = (filters: Record<string, string>) => {
+    return emails.filter((email) => {
+      const emailCategory = email.category?.toString().trim().toLowerCase() || "";
+      const emailState = email.state || "";
 
-    const matchesStatus =
-      !filters.status || filters.status === "all" || email.status === filters.status;
+      const matchesStatus =
+        !filters.status || filters.status === "all" || email.status === filters.status;
 
-    const matchesPriority =
-      !filters.priority || filters.priority === "all" || email.priority === filters.priority;
+      const matchesPriority =
+        !filters.priority || filters.priority === "all" || email.priority === filters.priority;
 
-    const matchesCategory =
-      !filters.category ||
-      filters.category === "all" ||
-      emailCategory === filters.category.toLowerCase();
+      const matchesCategory =
+        !filters.category ||
+        filters.category === "all" ||
+        emailCategory === filters.category.toLowerCase();
 
-    return matchesStatus && matchesPriority && matchesCategory;
-  }).length;
-};
+      const matchesState =
+        !filters.state ||
+        filters.state === "all" ||
+        emailState === filters.state;
 
+      return matchesStatus && matchesPriority && matchesCategory && matchesState;
+    }).length;
+  };
 
   useEffect(() => {
     const emailStats = getEmailStats();
@@ -208,6 +220,8 @@ export default function Dashboard() {
       if (card.customFilters.status) params.append("status", card.customFilters.status);
       if (card.customFilters.priority) params.append("priority", card.customFilters.priority);
       if (card.customFilters.category) params.append("category", card.customFilters.category);
+      if (card.customFilters.state) params.append("state", card.customFilters.state); // Novo
+
       navigate(`/history?${params.toString()}`);
       return;
     }
@@ -226,6 +240,7 @@ export default function Dashboard() {
     if (priorityFilter !== "all") filters.priority = priorityFilter;
     if (categoryFilter !== "all") filters.category = categoryFilter;
     if (statusFilter !== "all") filters.status = statusFilter;
+    if (stateFilter !== "all") filters.state = stateFilter; // Novo filtro estado
 
     const value = calculateCardValue(filters);
 
@@ -246,6 +261,7 @@ export default function Dashboard() {
     setPriorityFilter("all");
     setCategoryFilter("all");
     setStatusFilter("all");
+    setStateFilter("all"); // resetar filtro estado
     setIsDialogOpen(false);
   };
 
@@ -283,14 +299,13 @@ export default function Dashboard() {
               onChange={(e) => setNewCardTitle(e.target.value)}
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4"> {/* agora 4 colunas */}
               <div>
                 <label className="text-sm text-muted-foreground">Status</label>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="pending">Pendentes</SelectItem>
                     <SelectItem value="classified">Classificados</SelectItem>
                     <SelectItem value="archived">Arquivados</SelectItem>
                   </SelectContent>
@@ -321,6 +336,22 @@ export default function Dashboard() {
                     <SelectItem value="financeiro">Financeiro</SelectItem>
                     <SelectItem value="suporte">Suporte</SelectItem>
                     <SelectItem value="pessoal">Pessoal</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* NOVO FILTRO ESTADO */}
+              <div>
+                <label className="text-sm text-muted-foreground">Estado</label>
+                <Select value={stateFilter} onValueChange={setStateFilter}>
+                  <SelectTrigger><SelectValue placeholder="Estado" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {estadosBrasil.map((uf) => (
+                      <SelectItem key={uf} value={uf}>
+                        {uf}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

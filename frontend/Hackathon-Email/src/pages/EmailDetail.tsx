@@ -99,6 +99,29 @@ export default function EmailDetail() {
     }
   };
 
+  const handleReclassify = () => {
+    if (!id || !email) return;
+
+    const updated = updateEmail(id, {
+      subject: email.subject,
+      sender: email.sender,
+      recipient: email.recipient,
+      content: email.content,
+      status: "pending",
+      priority: "medium",
+      category: undefined,
+    });
+
+    if (updated) {
+      setEmail(updated);
+      toast({
+        title: "Classificação removida",
+        description: "O e-mail voltou para Pendentes para ser reclassificado.",
+      });
+      navigate("/pending");
+    }
+  };
+
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
@@ -146,9 +169,12 @@ export default function EmailDetail() {
             <div className="flex gap-2">
               {!isEditing ? (
                 <>
-                  <Button onClick={() => setIsEditing(true)}>
-                    Editar
+                  <Button onClick={() => setIsEditing(true)}>Editar</Button>
+
+                  <Button variant="secondary" onClick={handleReclassify}>
+                    Editar Classificação
                   </Button>
+
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button variant="destructive">
@@ -186,99 +212,10 @@ export default function EmailDetail() {
             </div>
           </div>
         </CardHeader>
+
         <CardContent className="space-y-6">
-          {isEditing ? (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="subject">Assunto</Label>
-                <Input
-                  id="subject"
-                  value={formData.subject}
-                  onChange={(e) => handleChange('subject', e.target.value)}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="sender">Remetente</Label>
-                  <Input
-                    id="sender"
-                    type="email"
-                    value={formData.sender}
-                    onChange={(e) => handleChange('sender', e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="recipient">Destinatário</Label>
-                  <Input
-                    id="recipient"
-                    type="email"
-                    value={formData.recipient}
-                    onChange={(e) => handleChange('recipient', e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="content">Conteúdo</Label>
-                <Textarea
-                  id="content"
-                  value={formData.content}
-                  onChange={(e) => handleChange('content', e.target.value)}
-                  rows={10}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="status">Estado</Label>
-                  <Select value={formData.status} onValueChange={(value) => handleChange('status', value)}>
-                    <SelectTrigger id="status">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Pendente</SelectItem>
-                      <SelectItem value="classified">Classificado</SelectItem>
-                      <SelectItem value="archived">Arquivado</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="priority">Prioridade</Label>
-                  <Select value={formData.priority} onValueChange={(value) => handleChange('priority', value)}>
-                    <SelectTrigger id="priority">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Baixa</SelectItem>
-                      <SelectItem value="medium">Média</SelectItem>
-                      <SelectItem value="high">Alta</SelectItem>
-                      <SelectItem value="urgent">Urgente</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="category">Categoria</Label>
-                  <Select value={formData.category} onValueChange={(value) => handleChange('category', value)}>
-                    <SelectTrigger id="category">
-                      <SelectValue placeholder="Selecione..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">Nenhuma</SelectItem>
-                      <SelectItem value="Trabalho">Trabalho</SelectItem>
-                      <SelectItem value="Pessoal">Pessoal</SelectItem>
-                      <SelectItem value="Financeiro">Financeiro</SelectItem>
-                      <SelectItem value="Suporte">Suporte</SelectItem>
-                      <SelectItem value="Marketing">Marketing</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </>
-          ) : (
+          
+          {!isEditing ? (
             <>
               <div>
                 <h3 className="text-sm font-medium text-muted-foreground mb-1">Assunto</h3>
@@ -322,6 +259,49 @@ export default function EmailDetail() {
                     <p className="whitespace-pre-wrap">{email.content}</p>
                   </CardContent>
                 </Card>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="subject">Assunto</Label>
+                <Input
+                  id="subject"
+                  value={formData.subject}
+                  onChange={(e) => handleChange('subject', e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="sender">Remetente</Label>
+                  <Input
+                    id="sender"
+                    type="email"
+                    value={formData.sender}
+                    onChange={(e) => handleChange('sender', e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="recipient">Destinatário</Label>
+                  <Input
+                    id="recipient"
+                    type="email"
+                    value={formData.recipient}
+                    onChange={(e) => handleChange('recipient', e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="content">Conteúdo</Label>
+                <Textarea
+                  id="content"
+                  value={formData.content}
+                  onChange={(e) => handleChange('content', e.target.value)}
+                  rows={10}
+                />
               </div>
             </>
           )}
