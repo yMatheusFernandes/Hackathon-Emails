@@ -45,6 +45,8 @@ import {
   PieChart,
   Pie,
   Cell,
+  BarChart,
+  Bar,
 } from "recharts";
 
 const estadosBrasil = [
@@ -84,6 +86,7 @@ export default function Dashboard() {
   const [dailyTrend, setDailyTrend] = useState<any[]>([]);
   const [customCards, setCustomCards] = useState<any[]>([]);
   const [emails, setEmails] = useState<any[]>([]);
+  const [emailsByStatePriority, setEmailsByStatePriority] = useState<any[]>([]); // NOVO: estado + prioridade
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newCardTitle, setNewCardTitle] = useState("");
@@ -147,6 +150,26 @@ export default function Dashboard() {
       };
     });
     setDailyTrend(trendData);
+
+    // NOVO: Montar dados para gráfico de e-mails por estado e prioridade
+    const states = estadosBrasil;
+    const priorities = ["low", "medium", "high", "urgent"];
+
+    const groupedData = states.map((state) => {
+      const emailsInState = allEmails.filter(e => e.state === state);
+      const dataItem: any = { state };
+
+      priorities.forEach(priority => {
+        dataItem[priority] = emailsInState.filter(e => e.priority === priority).length;
+      });
+
+      dataItem.total = emailsInState.length;
+
+      return dataItem;
+    });
+
+    setEmailsByStatePriority(groupedData);
+
   }, []);
 
   useEffect(() => {
@@ -448,7 +471,7 @@ export default function Dashboard() {
                     borderRadius: "0.5rem",
                   }}
                 />
-                <Legend />
+               <Legend />
                 <Line type="monotone" dataKey="emails" stroke="hsl(var(--primary))" strokeWidth={2} name="Total de E-mails" />
                 <Line type="monotone" dataKey="pending" stroke="hsl(var(--warning))" strokeWidth={2} name="Pendentes" />
               </LineChart>
@@ -456,6 +479,45 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* NOVO GRÁFICO: E-mails por Estado e Prioridade */}
+      <Card className="hover:shadow-lg transition-shadow mt-6">
+        <CardHeader>
+          <CardTitle>E-mails por Estado e Prioridade</CardTitle>
+        </CardHeader>
+        <CardContent className="h-[400px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={emailsByStatePriority}
+              margin={{ top: 20, right: 30, left: 20, bottom: 80 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis
+                dataKey="state"
+                stroke="hsl(var(--muted-foreground))"
+                angle={-45}
+                textAnchor="end"
+                interval={0}
+                height={60}
+              />
+              <YAxis stroke="hsl(var(--muted-foreground))" />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "hsl(var(--popover))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: "0.5rem",
+                }}
+              />
+              <Legend verticalAlign="top" height={36} />
+              
+              <Bar dataKey="low" stackId="a" fill="#60a5fa" name="Baixa" />
+              <Bar dataKey="medium" stackId="a" fill="#3b82f6" name="Média" />
+              <Bar dataKey="high" stackId="a" fill="#2563eb" name="Alta" />
+              <Bar dataKey="urgent" stackId="a" fill="#dc2626" name="Urgente" />
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
     </div>
   );
 }
