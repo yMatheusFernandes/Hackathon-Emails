@@ -16,9 +16,8 @@ export default function History() {
   const navigate = useNavigate();
   const query = useQuery();
   const location = useLocation();
-  // respect ?status=... but also allow visiting a route that contains "archiv" to open archived filter
+
   const urlStatus = query.get("status") ?? (location.pathname.includes("archiv") ? "archived" : "all");
-  // read additional query params so dashboard can open /history?priority=urgent or /history?search=...
   const urlPriority = query.get("priority") ?? "all";
   const urlCategory = query.get("category") ?? "all";
   const urlSearch = query.get("search") ?? "";
@@ -34,7 +33,6 @@ export default function History() {
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
 
-  // apply query params whenever the location/search changes
   useEffect(() => {
     const allEmails = getEmails();
     setEmails(allEmails);
@@ -62,13 +60,7 @@ export default function History() {
     }
 
     if (statusFilter !== "all") {
-      if (statusFilter === "urgent") {
-        filtered = filtered.filter(e =>
-          e.status === "urgent" ||
-          e.priority === "urgent" ||
-          e.priority === "high"
-        );
-      } else if (statusFilter === "recent") {
+      if (statusFilter === "recent") {
         const cutoff = new Date();
         cutoff.setDate(cutoff.getDate() - 7);
         filtered = filtered.filter(e => {
@@ -80,7 +72,9 @@ export default function History() {
     }
 
     if (categoryFilter !== "all") {
-      filtered = filtered.filter(e => e.category === categoryFilter);
+      filtered = filtered.filter(e =>
+        (e.category || "").trim().toLowerCase() === categoryFilter.toLowerCase()
+      );
     }
 
     if (priorityFilter !== "all") {
@@ -95,7 +89,7 @@ export default function History() {
     }
     if (endDate) {
       const e = new Date(endDate);
-      e.setHours(23,59,59,999);
+      e.setHours(23, 59, 59, 999);
       filtered = filtered.filter(item => {
         try { return new Date(item.date) <= e; } catch { return false; }
       });
@@ -147,19 +141,32 @@ export default function History() {
     urgent: 'Urgente',
   };
 
-  const categories = Array.from(new Set(emails.map(e => e.category).filter(Boolean)));
+  // Corrigido: categorias salvas com inicial maiúscula
+  const defaultCategories = ["Trabalho", "Pessoal", "Financeiro", "Suporte", "Marketing"];
+  const categories = Array.from(
+    new Set([
+      ...defaultCategories,
+      ...emails.map(e => e.category).filter(Boolean),
+    ])
+  );
 
-  const hasActiveFilters = statusFilter !== "all" || categoryFilter !== "all" || priorityFilter !== "all" || searchTerm !== "" || startDate !== "" || endDate !== "";
+  const hasActiveFilters =
+    statusFilter !== "all" ||
+    categoryFilter !== "all" ||
+    priorityFilter !== "all" ||
+    searchTerm !== "" ||
+    startDate !== "" ||
+    endDate !== "";
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-           <h1 className="text-3xl font-bold text-foreground mb-2">Histórico de E-mails</h1>
-           <p className="text-muted-foreground">
-             Visualize e busque todos os e-mails do sistema
-           </p>
-         </div>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Histórico de E-mails</h1>
+          <p className="text-muted-foreground">
+            Visualize e busque todos os e-mails do sistema
+          </p>
+        </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => navigate("/history?status=archived")}>
             Arquivados
@@ -171,8 +178,8 @@ export default function History() {
             </Button>
           )}
         </div>
-       </div>
-       
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -221,7 +228,7 @@ export default function History() {
               <SelectContent>
                 <SelectItem value="all">Todas as Categorias</SelectItem>
                 {categories.map(cat => (
-                  <SelectItem key={cat} value={cat!}>{cat}</SelectItem>
+                  <SelectItem key={cat} value={cat.toLowerCase()}>{cat}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -254,7 +261,11 @@ export default function History() {
           </Card>
         ) : (
           filteredEmails.map((email, index) => (
-            <Card key={email.id} className="hover:shadow-lg transition-shadow animate-slide-up" style={{ animationDelay: `${index * 0.03}s` }}>
+            <Card
+              key={email.id}
+              className="hover:shadow-lg transition-shadow animate-slide-up"
+              style={{ animationDelay: `${index * 0.03}s` }}
+            >
               <CardContent className="p-4 md:p-6">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex-1 space-y-2">
@@ -301,4 +312,4 @@ export default function History() {
       </div>
     </div>
   );
-} 
+}
