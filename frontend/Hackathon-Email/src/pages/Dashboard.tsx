@@ -26,8 +26,6 @@ import {
   Mail,
   Clock,
   CheckCircle,
-  Archive,
-  AlertTriangle,
   TrendingUp,
   Plus,
   Trash2,
@@ -73,8 +71,6 @@ const ICONS: Record<string, any> = {
   Mail,
   Clock,
   CheckCircle,
-  Archive,
-  AlertTriangle,
   TrendingUp,
 };
 
@@ -197,7 +193,6 @@ export default function Dashboard() {
     const statusData = [
       { name: "Pendentes", value: emailStats.pending, color: COLORS.pending },
       { name: "Classificados", value: emailStats.classified, color: COLORS.classified },
-      { name: "Arquivados", value: emailStats.archived, color: COLORS.archived },
     ];
     setChartData(statusData);
 
@@ -283,22 +278,6 @@ export default function Dashboard() {
       filterStatus: "classified",
     },
     {
-      title: "Arquivados",
-      value: stats.archived,
-      icon: "Archive",
-      color: "text-muted-foreground",
-      bgColor: "bg-muted",
-      filterStatus: "archived",
-    },
-    {
-      title: "Urgentes",
-      value: stats.urgent,
-      icon: "AlertTriangle",
-      color: "text-destructive",
-      bgColor: "bg-destructive/10",
-      filterStatus: "urgent",
-    },
-    {
       title: "Últimos 7 dias",
       value: stats.recent,
       icon: "TrendingUp",
@@ -325,7 +304,6 @@ export default function Dashboard() {
     }
     const filterStatus = card.filterStatus;
     if (!filterStatus) return navigate("/history");
-    if (filterStatus === "urgent") return navigate("/history?priority=urgent");
     navigate(`/history?status=${filterStatus}`);
   };
 
@@ -455,8 +433,8 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* CARDS PRINCIPAIS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* CARDS PRINCIPAIS (SEM ARQUIVADOS E URGENTES) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
         {statCards.map((stat, index) => {
           const Icon = ICONS[stat.icon as keyof typeof ICONS];
           return (
@@ -499,7 +477,7 @@ export default function Dashboard() {
       <div id="dashboard-export" ref={exportRef} className="space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader><CardTitle>E-mails por Estado</CardTitle></CardHeader>
+            <CardHeader><CardTitle>E-mails por Status</CardTitle></CardHeader>
             <CardContent className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
