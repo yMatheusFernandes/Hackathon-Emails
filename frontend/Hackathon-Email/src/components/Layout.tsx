@@ -1,25 +1,22 @@
-import { ReactNode, useState } from "react";
-import { AppSidebar } from "./AppSidebar";
+import { ReactNode } from "react";
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/AppSidebar";
 
 interface LayoutProps {
   children: ReactNode;
 }
 
 export function Layout({ children }: LayoutProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-
   return (
-    <div className="flex">
-      <AppSidebar onToggle={setSidebarOpen} />
-
-      <main
-        className={`
-        transition-all duration-300 w-full px-6 py-4
-        ${sidebarOpen ? "ml-64" : "ml-20"}   /* 👈 evita sobreposição */
-      `}
-      >
-        {children}
-      </main>
-    </div>
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full bg-background">
+        <AppSidebar />
+        <main className="flex-1 overflow-auto">
+          <div className="container mx-auto p-6 md:p-8 max-w-7xl">
+            {children}
+          </div>
+        </main>
+      </div>
+    </SidebarProvider>
   );
 }

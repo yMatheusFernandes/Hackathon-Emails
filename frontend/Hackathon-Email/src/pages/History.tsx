@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getEmails, type Email } from "@/lib/emailStorage";
-import { Search, Filter, Eye, Mail, X } from "lucide-react";
+import { Search, Filter, Eye, X } from "lucide-react";
 
 function useQuery() {
   return new URLSearchParams(useLocation().search);
@@ -28,6 +28,7 @@ export default function History() {
   const urlSearch = query.get("search") ?? "";
   const urlState = query.get("state") ?? "all";
   const urlSort = query.get("sort") ?? "newest";
+  const urlEmail = query.get("email") ?? "all";     // <---- NOVO FILTRO
 
   const [emails, setEmails] = useState<Email[]>([]);
   const [filteredEmails, setFilteredEmails] = useState<Email[]>([]);
@@ -36,6 +37,7 @@ export default function History() {
   const [categoryFilter, setCategoryFilter] = useState(urlCategory);
   const [stateFilter, setStateFilter] = useState(urlState);
   const [sortOption, setSortOption] = useState(urlSort);
+  const [emailFilter, setEmailFilter] = useState(urlEmail);  // <---- NOVO
 
   useEffect(() => {
     const all = getEmails();
@@ -45,7 +47,11 @@ export default function History() {
     setCategoryFilter(urlCategory);
     setStateFilter(urlState);
     setSortOption(urlSort);
+    setEmailFilter(urlEmail);  // <---- NOVO
   }, [location.search]);
+
+  // lista remetentes únicos
+  const senders = Array.from(new Set(emails.map(e => e.sender)));
 
   useEffect(() => {
     let filtered = emails.filter(e => e.status !== "pending");
@@ -61,6 +67,7 @@ export default function History() {
     if (statusFilter !== "all") filtered = filtered.filter(e => e.status === statusFilter);
     if (categoryFilter !== "all") filtered = filtered.filter(e => e.category?.toLowerCase() === categoryFilter.toLowerCase());
     if (stateFilter !== "all") filtered = filtered.filter(e => e.state === stateFilter);
+    if (emailFilter !== "all") filtered = filtered.filter(e => e.sender === emailFilter); // <---- AQUI O FILTRO FUNCIONA
 
     filtered.sort((a, b) =>
       sortOption === "newest"
@@ -69,7 +76,7 @@ export default function History() {
     );
 
     setFilteredEmails(filtered);
-  }, [emails, searchTerm, statusFilter, categoryFilter, stateFilter, sortOption]);
+  }, [emails, searchTerm, statusFilter, categoryFilter, stateFilter, sortOption, emailFilter]);
 
   const clearFilters = () => {
     setSearchTerm("");
@@ -77,10 +84,11 @@ export default function History() {
     setCategoryFilter("all");
     setStateFilter("all");
     setSortOption("newest");
+    setEmailFilter("all");
     navigate("/history");
   };
 
-  const getStatusColor = (status: Email['status']) => ( {
+  const getStatusColor = (status: Email['status']) => ({
     classified: 'bg-green-600/20 text-green-700',
     archived: 'bg-muted text-muted-foreground',
   }[status] ?? "");
@@ -93,6 +101,7 @@ export default function History() {
     categoryFilter !== "all" ||
     stateFilter !== "all" ||
     searchTerm !== "" ||
+    emailFilter !== "all" ||
     sortOption !== "newest";
 
   return (
@@ -118,7 +127,6 @@ export default function History() {
         </CardHeader>
 
         <CardContent className="space-y-4">
-
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/>
             <Input
@@ -129,8 +137,30 @@ export default function History() {
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-           
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+            
+            {/* ----- NOVO SELECT DE E-MAIL ----- */}
+            <Select 
+  value={emailFilter} 
+  onValueChange={(v) => {
+    setEmailFilter(v);
+    navigate(`/history?email=${v}`); // atualiza a URL para o filtro funcionar
+  }}
+>
+  <SelectTrigger>
+    <SelectValue placeholder="Remetente" />
+  </SelectTrigger>
+
+  <SelectContent>
+    <SelectItem value="all">Todos</SelectItem>
+    {senders.map(s => (
+      <SelectItem key={s} value={s}>
+        {s}
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
+
 
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
               <SelectTrigger><SelectValue placeholder="Categoria"/></SelectTrigger>
@@ -147,7 +177,7 @@ export default function History() {
                 {estadosBrasil.map(uf => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
               </SelectContent>
             </Select>
-{/* <label className="text-xs text-muted-foreground">Ordenar por</label>*/}
+
             <Select value={sortOption} onValueChange={setSortOption}>
               <SelectTrigger><SelectValue/></SelectTrigger>
               <SelectContent>
@@ -155,10 +185,6 @@ export default function History() {
                 <SelectItem value="oldest">Mais antigos primeiro</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-
-          <div>
-           
           </div>
 
           <p className="text-sm text-muted-foreground">

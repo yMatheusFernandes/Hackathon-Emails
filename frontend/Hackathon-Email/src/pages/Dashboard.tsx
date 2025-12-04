@@ -108,7 +108,7 @@ export default function Dashboard() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [stateFilter, setStateFilter] = useState("all");
 
-  // Função para gerar PDF melhorada com delay
+  // Função para gerar PDF melhorada com logo, título e assinatura final
   const gerarPDF = async () => {
     if (!exportRef.current) {
       alert("Gráficos não encontrados!");
@@ -116,36 +116,95 @@ export default function Dashboard() {
     }
 
     try {
-      // Aguarda 1.5 segundos para todas as animações terminarem
       await new Promise(resolve => setTimeout(resolve, 1500));
 
+      // -------- CONVERTER LOGO PARA BASE64 -------- //
+      const logoUrl = "https://www.loja.printstudio.com.br/uploads/produtos/criacao-de-logomarca-basica-arte-digital-99471586279148.jpg";
+
+      const logoBase64 = await new Promise<string>((resolve) => {
+        const img = new Image();
+        img.crossOrigin = "Anonymous";
+        img.src = logoUrl;
+
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext("2d");
+          ctx!.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL("image/png"));
+        };
+
+        img.onerror = () => {
+          // fallback: resolve empty string so generation continues without logo
+          resolve("");
+        };
+      });
+
+      // -------- CAPTURA DA ÁREA DO DASHBOARD -------- //
       const canvas = await html2canvas(exportRef.current, { 
         scale: 2,
         allowTaint: true,
         useCORS: true,
       });
-      const imgData = canvas.toDataURL("image/png");
 
+      const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF("p", "mm", "a4");
-      const larguraPDF = 210;
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      // ---------- CABEÇALHO COM LOGO + TÍTULO + DATA ----------
+      const dataAtual = new Date();
+      const dataFormatada = dataAtual.toLocaleDateString("pt-BR");
+      const horaFormatada = dataAtual.toLocaleTimeString("pt-BR");
+
+      // Inserir logo centralizado se disponível
+      if (logoBase64) {
+        pdf.addImage(logoBase64, "PNG", pageWidth / 2 - 25, 10, 50, 30); // 50x30mm centralizado
+      }
+
+      pdf.setFontSize(22);
+      pdf.text("Relatório - Email Manager", pageWidth / 2, 50, { align: "center" });
+
+      pdf.setFontSize(11);
+      pdf.text(`Gerado em: ${dataFormatada} às ${horaFormatada}`, pageWidth / 2, 58, { align: "center" });
+
+      // ------------ IMAGEM DOS GRÁFICOS -----------------
+      const larguraPDF = 190;
       const proporcao = canvas.height / canvas.width;
       const alturaPDF = larguraPDF * proporcao;
 
-      const alturaPagePDF = pdf.internal.pageSize.getHeight();
-      let posicaoY = 0;
-      let primeiraPage = true;
+      let posY = 70; // começa abaixo da logo e infos
 
-      // Quebra em várias páginas se necessário
-      while (posicaoY < alturaPDF) {
-        if (!primeiraPage) {
-          pdf.addPage();
+      if (alturaPDF + posY < pageHeight - 30) {
+        pdf.addImage(imgData, "PNG", 10, posY, larguraPDF, alturaPDF);
+      } else {
+        // Quebra automática em múltiplas páginas
+        let restante = alturaPDF;
+        let offset = 0;
+
+        while (restante > 0) {
+          if (offset > 0) pdf.addPage();
+          pdf.addImage(imgData, "PNG", 10, 10 - offset, larguraPDF, alturaPDF);
+          restante -= pageHeight;
+          offset += pageHeight;
         }
-        pdf.addImage(imgData, "PNG", 0, -posicaoY, larguraPDF, alturaPDF);
-        posicaoY += alturaPagePDF;
-        primeiraPage = false;
       }
 
+      // ----------- PÁGINA FINAL COM TEXTO ------------
+      pdf.addPage();
+
+      pdf.setFontSize(16);
+      pdf.text("Relatório concluído ✔", pageWidth / 2, 30, { align: "center" });
+
+      pdf.setFontSize(12);
+      pdf.text("Este relatório foi gerado automaticamente pelo sistema Email Manager.", pageWidth / 2, 45, { align: "center" });
+
+      pdf.text("Obrigado por utilizar nosso sistema!", pageWidth / 2, 60, { align: "center" });
+
       pdf.save("dashboard.pdf");
+
     } catch (error) {
       console.error("Erro ao gerar PDF:", error);
       alert("Erro ao gerar PDF");
@@ -587,22 +646,25 @@ export default function Dashboard() {
           </Card>
 
           {/* Top 5 Remetentes */}
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader><CardTitle>Top 5 Remetentes</CardTitle></CardHeader>
-            <CardContent className="h-[300px] overflow-y-auto">
-              <ul className="w-full space-y-3">
-                {topSenders.map(({ sender, count }, i) => (
-                  <li
-                    key={i}
-                    className="flex justify-between items-center border-b pb-2 text-sm"
-                  >
-                    <span className="font-medium break-words">{i + 1}. {sender}</span>
-                    <span className="text-lg font-bold text-primary">{count}</span>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
+         {/* Top 5 Remetentes */}
+<Card className="hover:shadow-lg transition-shadow">
+  <CardHeader><CardTitle>Top 5 Remetentes</CardTitle></CardHeader>
+  <CardContent className="h-[300px] overflow-y-auto">
+    <ul className="w-full space-y-3">
+      {topSenders.map(({ sender, count }, i) => (
+        <li
+          key={i}
+          onClick={() => navigate(`/history?sender=${encodeURIComponent(sender)}`)}
+          className="flex justify-between items-center border-b pb-2 text-sm cursor-pointer hover:bg-accent/40 p-2 rounded-md transition"
+        >
+          <span className="font-medium break-words">{i + 1}. {sender}</span>
+          <span className="text-lg font-bold text-primary">{count}</span>
+        </li>
+      ))}
+    </ul>
+  </CardContent>
+</Card>
+
 
         </div>
 
