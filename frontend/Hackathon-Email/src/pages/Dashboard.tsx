@@ -30,6 +30,7 @@ import {
   Plus,
   Trash2,
   FileDown,
+  X,
 } from "lucide-react";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
@@ -67,6 +68,14 @@ const COLORS = {
   urgentPrio: "hsl(var(--destructive))",
 };
 
+const CATEGORY_COLORS = {
+  marketing: "#3b82f6",
+  financeiro: "#10b981",
+  suporte: "#f59e0b",
+  pessoal: "#8b5cf6",
+  outros: "#6b7280",
+};
+
 const ICONS: Record<string, any> = {
   Mail,
   Clock,
@@ -74,11 +83,24 @@ const ICONS: Record<string, any> = {
   TrendingUp,
 };
 
+// Interface para o gráfico personalizado salvo
+interface CustomChart {
+  id: string;
+  title: string;
+  data: any[];
+  filters: {
+    state: string;
+    status: string;
+  };
+  createdAt: string;
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const exportRef = useRef<HTMLDivElement>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [isCustomChartOpen, setIsCustomChartOpen] = useState(false);
 
   const [stats, setStats] = useState({
     total: 0,
@@ -101,6 +123,34 @@ export default function Dashboard() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [stateFilter, setStateFilter] = useState("all");
+
+  // Estados para o gráfico personalizado
+  const [chartState, setChartState] = useState("all");
+  const [chartStatus, setChartStatus] = useState("all");
+  const [customCharts, setCustomCharts] = useState<CustomChart[]>([]);
+  const [chartTitle, setChartTitle] = useState("");
+
+  // ---------- CARREGAR GRÁFICOS SALVOS ----------
+  useEffect(() => {
+    const savedCharts = localStorage.getItem("customDashboardCharts");
+    if (savedCharts) {
+      try {
+        const parsed = JSON.parse(savedCharts);
+        setCustomCharts(parsed);
+      } catch (error) {
+        console.error("Erro ao carregar gráficos salvos:", error);
+      }
+    }
+  }, []);
+
+  // ---------- SALVAR GRÁFICOS ----------
+  const saveChartsToLocalStorage = (charts: CustomChart[]) => {
+    try {
+      localStorage.setItem("customDashboardCharts", JSON.stringify(charts));
+    } catch (error) {
+      console.error("Erro ao salvar gráficos:", error);
+    }
+  };
 
   // ---------- FUNÇÕES DE PDF ----------
   const gerarPreview = async () => {
@@ -161,6 +211,64 @@ export default function Dashboard() {
     }
   };
 
+  // ---------- FUNÇÃO DO GRÁFICO PERSONALIZADO ----------
+  const gerarGraficoPersonalizado = () => {
+    if (!chartTitle.trim()) {
+      alert("Por favor, dê um título ao gráfico!");
+      return;
+    }
+
+    let filtrados = [...emails];
+
+    if (chartState !== "all") filtrados = filtrados.filter(e => e.state === chartState);
+    if (chartStatus !== "all") filtrados = filtrados.filter(e => e.status === chartStatus);
+
+    // Agrupar por categoria
+    const categorias = filtrados.reduce((acc, email) => {
+      const categoria = email.category?.toLowerCase() || "outros";
+      if (!acc[categoria]) acc[categoria] = 0;
+      acc[categoria]++;
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Converter para o formato do gráfico
+    const data = Object.entries(categorias).map(([name, value]) => ({
+      name: name.charAt(0).toUpperCase() + name.slice(1),
+      value,
+      color: CATEGORY_COLORS[name as keyof typeof CATEGORY_COLORS] || CATEGORY_COLORS.outros
+    }));
+
+    // Criar novo gráfico
+    const newChart: CustomChart = {
+      id: Date.now().toString(),
+      title: chartTitle,
+      data,
+      filters: {
+        state: chartState,
+        status: chartStatus,
+      },
+      createdAt: new Date().toLocaleString("pt-BR"),
+    };
+
+    // Adicionar à lista
+    const updatedCharts = [...customCharts, newChart];
+    setCustomCharts(updatedCharts);
+    saveChartsToLocalStorage(updatedCharts);
+
+    // Limpar formulário
+    setChartTitle("");
+    setChartState("all");
+    setChartStatus("all");
+    setIsCustomChartOpen(false);
+  };
+
+  // ---------- REMOVER GRÁFICO ----------
+  const removerGrafico = (id: string) => {
+    const updatedCharts = customCharts.filter(chart => chart.id !== id);
+    setCustomCharts(updatedCharts);
+    saveChartsToLocalStorage(updatedCharts);
+  };
+
   // ---------- CÁLCULO DE CARDS ----------
   const calculateCardValue = (filters: Record<string, string>) => {
     return emails.filter((email) => {
@@ -191,11 +299,10 @@ export default function Dashboard() {
     setEmails(allEmails);
 
     const statusData = [
-  { name: "Pendentes", value: emailStats.pending, color: COLORS.pending },
-  { name: "Classificados", value: emailStats.classified, color: COLORS.classified },
-];
-setChartData(statusData);
-
+      { name: "Pendentes", value: emailStats.pending, color: COLORS.pending },
+      { name: "Classificados", value: emailStats.classified, color: COLORS.classified },
+    ];
+    setChartData(statusData);
 
     const last7Days = Array.from({ length: 7 }, (_, i) => {
       const date = new Date();
@@ -353,6 +460,9 @@ setChartData(statusData);
           <Button onClick={() => setIsDialogOpen(true)} size="sm">
             <Plus className="h-4 w-4 mr-1" /> Adicionar Atalho
           </Button>
+          <Button variant="secondary" size="sm" onClick={() => setIsCustomChartOpen(true)}>
+            <TrendingUp className="h-4 w-4 mr-1" /> Gráfico Personalizado
+          </Button>
           <Button variant="outline" size="sm" onClick={gerarPreview}>
             <FileDown className="h-4 w-4 mr-1" /> Pré-visualizar PDF
           </Button>
@@ -406,6 +516,75 @@ setChartData(statusData);
               Cancelar
             </Button>
             <Button onClick={addCustomCard}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIALOG DO GRÁFICO PERSONALIZADO */}
+      <Dialog open={isCustomChartOpen} onOpenChange={setIsCustomChartOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Criar Novo Gráfico Personalizado</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Título do gráfico */}
+            <div>
+              <label className="text-sm text-muted-foreground">Título do Gráfico *</label>
+              <Input
+                placeholder="Ex: Distribuição por Categoria no PI"
+                value={chartTitle}
+                onChange={(e) => setChartTitle(e.target.value)}
+              />
+            </div>
+
+            {/* Estado */}
+            <div>
+              <label className="text-sm text-muted-foreground">Estado</label>
+              <Select value={chartState} onValueChange={setChartState}>
+                <SelectTrigger><SelectValue placeholder="Estado" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os Estados</SelectItem>
+                  {estadosBrasil.map((uf) => (
+                    <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Status */}
+            <div>
+              <label className="text-sm text-muted-foreground">Status</label>
+              <Select value={chartStatus} onValueChange={setChartStatus}>
+                <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os Status</SelectItem>
+                  <SelectItem value="pending">Pendentes</SelectItem>
+                  <SelectItem value="classified">Classificados</SelectItem>
+                  <SelectItem value="archived">Arquivados</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Prévia do título do gráfico */}
+            <div className="p-3 bg-muted/30 rounded-md">
+              <p className="text-sm font-medium mb-1">Prévia do gráfico:</p>
+              <p className="text-sm text-muted-foreground">
+                {chartTitle || "(Sem título)"}
+                {chartState !== "all" && ` - Estado: ${chartState}`}
+                {chartStatus !== "all" && ` - Status: ${chartStatus === 'pending' ? 'Pendentes' : chartStatus === 'classified' ? 'Classificados' : 'Arquivados'}`}
+              </p>
+            </div>
+
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCustomChartOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={gerarGraficoPersonalizado}>
+              Criar Gráfico
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -476,36 +655,101 @@ setChartData(statusData);
 
       {/* GRÁFICOS */}
       <div id="dashboard-export" ref={exportRef} className="space-y-6">
+        {/* GRÁFICOS PERSONALIZADOS SALVOS */}
+        {customCharts.length > 0 && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-foreground">Gráficos Personalizados</h2>
+              <div className="text-sm text-muted-foreground">
+                {customCharts.length} gráfico{customCharts.length !== 1 ? 's' : ''} salvo{customCharts.length !== 1 ? 's' : ''}
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {customCharts.map((chart) => (
+                <Card key={chart.id} className="hover:shadow-lg transition-shadow relative">
+                  <button
+                    onClick={() => removerGrafico(chart.id)}
+                    className="absolute top-3 right-3 text-muted-foreground hover:text-destructive transition z-10"
+                    title="Remover gráfico"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                  
+                  <CardHeader>
+                    <CardTitle className="text-lg">
+                      {chart.title}
+                      <div className="text-sm text-muted-foreground font-normal mt-1">
+                        Criado em: {chart.createdAt}
+                        {chart.filters.state !== "all" && ` • Estado: ${chart.filters.state}`}
+                        {chart.filters.status !== "all" && ` • Status: ${chart.filters.status === 'pending' ? 'Pendentes' : chart.filters.status === 'classified' ? 'Classificados' : 'Arquivados'}`}
+                      </div>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="h-[300px]">
+                    {chart.data.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={chart.data}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            outerRadius={80}
+                            dataKey="value"
+                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                          >
+                            {chart.data.map((entry, i) => (
+                              <Cell key={i} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            formatter={(value) => [`${value} e-mails`, 'Quantidade']}
+                          />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <p className="text-muted-foreground">Nenhum dado encontrado com os filtros aplicados</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* GRÁFICO DE PIZZA (Apenas Pendentes e Classificados) */}
-<Card className="hover:shadow-lg transition-shadow">
-  <CardHeader>
-    <CardTitle>E-mails por Status</CardTitle>
-  </CardHeader>
-  <CardContent className="h-[300px]">
-    <ResponsiveContainer width="100%" height="100%">
-      <PieChart>
-        <Pie
-          data={chartData}       // ← já contém apenas pendentes e classificados
-          cx="50%"
-          cy="50%"
-          labelLine={false}
-          label={({ name, percent }) =>
-            `${name}: ${(percent * 100).toFixed(0)}%`
-          }
-          outerRadius={80}
-          dataKey="value"
-        >
-          {chartData.map((entry, index) => (
-            <Cell key={`cell-${index}`} fill={entry.color} />
-          ))}
-        </Pie>
-        <Tooltip />
-      </PieChart>
-    </ResponsiveContainer>
-  </CardContent>
-</Card>
-
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <CardTitle>E-mails por Status</CardTitle>
+            </CardHeader>
+            <CardContent className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={chartData}       // ← já contém apenas pendentes e classificados
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) =>
+                      `${name}: ${(percent * 100).toFixed(0)}%`
+                    }
+                    outerRadius={80}
+                    dataKey="value"
+                  >
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
 
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader><CardTitle>Tendência Diária (Últimos 7 dias)</CardTitle></CardHeader>
