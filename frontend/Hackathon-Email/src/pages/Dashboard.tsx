@@ -191,10 +191,11 @@ export default function Dashboard() {
     setEmails(allEmails);
 
     const statusData = [
-      { name: "Pendentes", value: emailStats.pending, color: COLORS.pending },
-      { name: "Classificados", value: emailStats.classified, color: COLORS.classified },
-    ];
-    setChartData(statusData);
+  { name: "Pendentes", value: emailStats.pending, color: COLORS.pending },
+  { name: "Classificados", value: emailStats.classified, color: COLORS.classified },
+];
+setChartData(statusData);
+
 
     const last7Days = Array.from({ length: 7 }, (_, i) => {
       const date = new Date();
@@ -476,29 +477,35 @@ export default function Dashboard() {
       {/* GRÁFICOS */}
       <div id="dashboard-export" ref={exportRef} className="space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader><CardTitle>E-mails por Status</CardTitle></CardHeader>
-            <CardContent className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={chartData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={80}
-                    dataKey="value"
-                  >
-                    {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
+          {/* GRÁFICO DE PIZZA (Apenas Pendentes e Classificados) */}
+<Card className="hover:shadow-lg transition-shadow">
+  <CardHeader>
+    <CardTitle>E-mails por Status</CardTitle>
+  </CardHeader>
+  <CardContent className="h-[300px]">
+    <ResponsiveContainer width="100%" height="100%">
+      <PieChart>
+        <Pie
+          data={chartData}       // ← já contém apenas pendentes e classificados
+          cx="50%"
+          cy="50%"
+          labelLine={false}
+          label={({ name, percent }) =>
+            `${name}: ${(percent * 100).toFixed(0)}%`
+          }
+          outerRadius={80}
+          dataKey="value"
+        >
+          {chartData.map((entry, index) => (
+            <Cell key={`cell-${index}`} fill={entry.color} />
+          ))}
+        </Pie>
+        <Tooltip />
+      </PieChart>
+    </ResponsiveContainer>
+  </CardContent>
+</Card>
+
 
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader><CardTitle>Tendência Diária (Últimos 7 dias)</CardTitle></CardHeader>
