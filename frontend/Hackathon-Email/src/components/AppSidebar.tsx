@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, Mail, Plus, History, Menu } from "lucide-react";
+import { LayoutDashboard, Mail, Plus, History, Menu, Inbox } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
   Tooltip,
@@ -16,11 +16,11 @@ export function AppSidebar() {
     { title: "Pendentes", url: "/pending", icon: Mail },
     { title: "Novo E-mail", url: "/new", icon: Plus },
     { title: "Histórico", url: "/history", icon: History },
+    { title: "Todos os E-mails", url: "/all-emails", icon: Inbox }, // ✅ NOVO ITEM
   ];
 
   return (
     <TooltipProvider>
-      {/* Sidebar fixa */}
       <div
         className={`fixed top-0 left-0 h-screen flex flex-col transition-all duration-300 border-r
         ${open ? "w-64" : "w-20"}

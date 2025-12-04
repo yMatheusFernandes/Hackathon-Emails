@@ -645,7 +645,7 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* Top 5 Remetentes */}
+         
          {/* Top 5 Remetentes */}
 <Card className="hover:shadow-lg transition-shadow">
   <CardHeader><CardTitle>Top 5 Remetentes</CardTitle></CardHeader>
@@ -654,7 +654,9 @@ export default function Dashboard() {
       {topSenders.map(({ sender, count }, i) => (
         <li
           key={i}
-          onClick={() => navigate(`/history?sender=${encodeURIComponent(sender)}`)}
+onClick={() => navigate(`/all-emails?sender=${encodeURIComponent(sender)}`)}
+
+
           className="flex justify-between items-center border-b pb-2 text-sm cursor-pointer hover:bg-accent/40 p-2 rounded-md transition"
         >
           <span className="font-medium break-words">{i + 1}. {sender}</span>

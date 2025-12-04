@@ -10,6 +10,11 @@ import NewEmail from "./pages/NewEmail";
 import History from "./pages/History";
 import EmailDetail from "./pages/EmailDetail";
 import NotFound from "./pages/NotFound";
+import AllEmails from "@/pages/AllEmails";
+import SenderEmails from "@/pages/SenderEmails"; // <-- Importa a nova página
+// ...
+
+
 
 const queryClient = new QueryClient();
 
@@ -27,6 +32,10 @@ const App = () => (
             <Route path="/history" element={<History />} />
             <Route path="/email/:id" element={<EmailDetail />} />
             <Route path="*" element={<NotFound />} />
+            
+            <Route path="/all-emails" element={<AllEmails />} />
+            <Route path="/sender-emails" element={<SenderEmails />} />
+
           </Routes>
         </Layout>
       </BrowserRouter>
