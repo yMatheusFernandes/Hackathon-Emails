@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { LayoutDashboard, Mail, Plus, History, Menu, Inbox } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { LayoutDashboard, Mail, Plus, History, Menu, Inbox, LogOut } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
   Tooltip,
@@ -7,16 +8,18 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button"; // Caso queira usar botão estilizado
 
 export function AppSidebar() {
   const [open, setOpen] = useState(true);
+  const navigate = useNavigate();
 
   const menuItems = [
-    { title: "Dashboard", url: "/", icon: LayoutDashboard },
+    { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
     { title: "Pendentes", url: "/pending", icon: Mail },
     { title: "Novo E-mail", url: "/new", icon: Plus },
     { title: "Histórico", url: "/history", icon: History },
-    { title: "Todos os E-mails", url: "/all-emails", icon: Inbox }, // ✅ NOVO ITEM
+    { title: "Todos os E-mails", url: "/all-emails", icon: Inbox },
   ];
 
   return (
@@ -75,6 +78,17 @@ export function AppSidebar() {
               </Tooltip>
             ))}
           </nav>
+        </div>
+
+        {/* Botão de sair */}
+        <div className="p-4 border-t border-[#1B263B]">
+          <button
+            onClick={() => navigate("/login")}
+            className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-[#1B263B]"
+          >
+            <LogOut className="h-5 w-5" />
+            {open && <span>Sair</span>}
+          </button>
         </div>
       </div>
 
