@@ -83,7 +83,7 @@ const ICONS: Record<string, any> = {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const dashboardRef = useRef<HTMLDivElement>(null);
+  const exportRef = useRef<HTMLDivElement>(null);
 
   const [stats, setStats] = useState({
     total: 0,
@@ -98,6 +98,8 @@ export default function Dashboard() {
   const [dailyTrend, setDailyTrend] = useState<any[]>([]);
   const [customCards, setCustomCards] = useState<any[]>([]);
   const [emails, setEmails] = useState<any[]>([]);
+  const [topStates, setTopStates] = useState<any[]>([]);
+  const [topSenders, setTopSenders] = useState<any[]>([]);
   const [emailsByStateTotal, setEmailsByStateTotal] = useState<any[]>([]);
   const [prioritiesByState, setPrioritiesByState] = useState<any[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -107,23 +109,47 @@ export default function Dashboard() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [stateFilter, setStateFilter] = useState("all");
 
-  // Função para gerar PDF
+  // Função para gerar PDF melhorada com delay
   const gerarPDF = async () => {
-    if (!dashboardRef.current) return;
+    if (!exportRef.current) {
+      alert("Gráficos não encontrados!");
+      return;
+    }
 
     try {
-      const canvas = await html2canvas(dashboardRef.current, { scale: 2 });
+      // Aguarda 1.5 segundos para todas as animações terminarem
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      const canvas = await html2canvas(exportRef.current, { 
+        scale: 2,
+        allowTaint: true,
+        useCORS: true,
+      });
       const imgData = canvas.toDataURL("image/png");
+
       const pdf = new jsPDF("p", "mm", "a4");
+      const larguraPDF = 210;
+      const proporcao = canvas.height / canvas.width;
+      const alturaPDF = larguraPDF * proporcao;
 
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const imgWidth = pageWidth;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const alturaPagePDF = pdf.internal.pageSize.getHeight();
+      let posicaoY = 0;
+      let primeiraPage = true;
 
-      pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
+      // Quebra em várias páginas se necessário
+      while (posicaoY < alturaPDF) {
+        if (!primeiraPage) {
+          pdf.addPage();
+        }
+        pdf.addImage(imgData, "PNG", 0, -posicaoY, larguraPDF, alturaPDF);
+        posicaoY += alturaPagePDF;
+        primeiraPage = false;
+      }
+
       pdf.save("dashboard.pdf");
     } catch (error) {
       console.error("Erro ao gerar PDF:", error);
+      alert("Erro ao gerar PDF");
     }
   };
 
@@ -184,14 +210,35 @@ export default function Dashboard() {
     });
     setDailyTrend(trendData);
 
-    // NOVO: Dados para gráfico total por estado
-    const totalPorEstado = estadosBrasil.map((state) => {
-      return {
-        state,
-        total: allEmails.filter(e => e.state === state).length,
-      };
-    });
-    setEmailsByStateTotal(totalPorEstado);
+    // --- Agrupar por estado ---
+    const emailByState = allEmails.reduce((acc, email) => {
+      const state = email.state || "Não informado";
+      if (!acc[state]) acc[state] = 0;
+      acc[state]++;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const top5States = Object.entries(emailByState)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([state, count]) => ({ state, count }));
+
+    setTopStates(top5States);
+
+    // --- Top 5 Remetentes ---
+    const emailBySender = allEmails.reduce((acc, email) => {
+      const sender = email.sender || "Desconhecido";
+      if (!acc[sender]) acc[sender] = 0;
+      acc[sender]++;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const top5Senders = Object.entries(emailBySender)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([sender, count]) => ({ sender, count }));
+
+    setTopSenders(top5Senders);
 
     // NOVO: Dados para gráfico empilhado de prioridades por estado
     const prioritiesPorEstado = estadosBrasil.map((state) => {
@@ -284,6 +331,12 @@ export default function Dashboard() {
       return;
     }
 
+    // Redirecionar "Pendentes" para página /pending
+    if (card.title === "Pendentes") {
+      navigate("/pending");
+      return;
+    }
+
     const filterStatus = card.filterStatus;
     if (!filterStatus) return navigate("/history");
     if (filterStatus === "urgent") return navigate("/history?priority=urgent");
@@ -329,7 +382,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in" ref={dashboardRef}>
+    <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard</h1>
@@ -468,43 +521,135 @@ export default function Dashboard() {
         })}
       </div>
 
-      {/* GRÁFICOS */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* GRÁFICOS - EXPORTAR APENAS ESTA SEÇÃO */}
+      <div id="dashboard-export" ref={exportRef} className="space-y-6">
 
-        {/* Gráfico Pizza existente */}
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader><CardTitle>E-mails por Estado</CardTitle></CardHeader>
-          <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={chartData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  dataKey="value"
-                >
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        {/* GRÁFICOS */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-        {/* Gráfico tendência diária existente */}
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader><CardTitle>Tendência Diária (Últimos 7 dias)</CardTitle></CardHeader>
-          <CardContent className="h-[300px]">
+          {/* Gráfico Pizza existente */}
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader><CardTitle>E-mails por Estado</CardTitle></CardHeader>
+            <CardContent className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={chartData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    dataKey="value"
+                  >
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          {/* Gráfico tendência diária existente */}
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader><CardTitle>Tendência Diária (Últimos 7 dias)</CardTitle></CardHeader>
+            <CardContent className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={dailyTrend}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
+                  <YAxis stroke="hsl(var(--muted-foreground))" />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--popover))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "0.5rem",
+                    }}
+                  />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="emails"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2}
+                    name="Total de E-mails"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="pending"
+                    stroke="hsl(var(--warning))"
+                    strokeWidth={2}
+                    name="Pendentes"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+        </div>
+
+        {/* NOVOS GRÁFICOS */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+
+          {/* Top 5 Estados por Volume */}
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader><CardTitle>Top 5 Estados por Volume</CardTitle></CardHeader>
+            <CardContent className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={topStates}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="state" stroke="hsl(var(--muted-foreground))" />
+                  <YAxis stroke="hsl(var(--muted-foreground))" />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--popover))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "0.5rem",
+                    }}
+                  />
+                  <Bar dataKey="count" fill="hsl(var(--primary))" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          {/* Top 5 Remetentes */}
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader><CardTitle>Top 5 Remetentes</CardTitle></CardHeader>
+            <CardContent className="h-[300px] overflow-y-auto">
+              <ul className="w-full space-y-3">
+                {topSenders.map(({ sender, count }, i) => (
+                  <li
+                    key={i}
+                    className="flex justify-between items-center border-b pb-2 text-sm"
+                  >
+                    <span className="font-medium break-words">{i + 1}. {sender}</span>
+                    <span className="text-lg font-bold text-primary">{count}</span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+
+        </div>
+
+        {/* Gráfico Prioridades por Estado — FULL WIDTH */}
+        <Card className="hover:shadow-lg transition-shadow mt-6 w-full">
+          <CardHeader><CardTitle>Prioridade por Estado</CardTitle></CardHeader>
+          <CardContent className="h-[450px]"> 
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={dailyTrend}>
+              <BarChart 
+                data={prioritiesByState} 
+                margin={{ top: 20, right: 20, left: 10, bottom: 40 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
+
+                {/* Estados ficam embaixo, como colunas (horizontal visível) */}
+                <XAxis dataKey="state" stroke="hsl(var(--muted-foreground))" />
                 <YAxis stroke="hsl(var(--muted-foreground))" />
+
                 <Tooltip
                   contentStyle={{
                     backgroundColor: "hsl(var(--popover))",
@@ -513,98 +658,12 @@ export default function Dashboard() {
                   }}
                 />
                 <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="emails"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth={2}
-                  name="Total de E-mails"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="pending"
-                  stroke="hsl(var(--warning))"
-                  strokeWidth={2}
-                  name="Pendentes"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
 
-      </div>
-
-      {/* NOVOS GRÁFICOS DE ESTADO, DEITADOS (LADO A LADO) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-
-        {/* Gráfico Total por Estado */}
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader><CardTitle>Total de E-mails por Estado</CardTitle></CardHeader>
-          <CardContent className="h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={emailsByStateTotal}
-                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                layout="vertical"
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis type="number" stroke="hsl(var(--muted-foreground))" />
-                <YAxis
-                  dataKey="state"
-                  type="category"
-                  stroke="hsl(var(--muted-foreground))"
-                  width={40}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--popover))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "0.5rem",
-                  }}
-                />
-                <Legend />
-                <Bar dataKey="total" fill="hsl(var(--primary))" name="Total" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Gráfico Prioridades por Estado (Empilhado) */}
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader><CardTitle>Prioridades por Estado</CardTitle></CardHeader>
-          <CardContent className="h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={prioritiesByState}
-                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                layout="vertical"
-                stackOffset="expand"
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis
-                  type="number"
-                  stroke="hsl(var(--muted-foreground))"
-                  tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
-                />
-                <YAxis
-                  dataKey="state"
-                  type="category"
-                  stroke="hsl(var(--muted-foreground))"
-                  width={40}
-                />
-                <Tooltip
-                  formatter={(value: number) => value}
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--popover))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "0.5rem",
-                  }}
-                />
-                <Legend />
-                <Bar dataKey="low" stackId="a" fill={COLORS.low} name="Baixa" />
-                <Bar dataKey="medium" stackId="a" fill={COLORS.medium} name="Média" />
-                <Bar dataKey="high" stackId="a" fill={COLORS.high} name="Alta" />
-                <Bar dataKey="urgent" stackId="a" fill={COLORS.urgentPrio} name="Urgente" />
+                {/* Barras empilhadas por prioridade (vertical), ocupando largura total */}
+                <Bar dataKey="low" fill={COLORS.low} name="Baixa" />
+                <Bar dataKey="medium" fill={COLORS.medium} name="Média" />
+                <Bar dataKey="high" fill={COLORS.high} name="Alta" />
+                <Bar dataKey="urgent" fill={COLORS.urgentPrio} name="Urgente" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

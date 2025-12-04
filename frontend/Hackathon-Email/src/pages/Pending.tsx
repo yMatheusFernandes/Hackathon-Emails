@@ -8,6 +8,12 @@ import { getEmails, updateEmail, type Email } from "@/lib/emailStorage";
 import { Mail, Search, Filter, Eye, CheckCircle, Archive } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+const estadosBrasil = [
+  "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA",
+  "MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN",
+  "RS","RO","RR","SC","SP","SE","TO"
+];
+
 export default function Pending() {
   const [emails, setEmails] = useState<Email[]>([]);
   const [filteredEmails, setFilteredEmails] = useState<Email[]>([]);
@@ -15,47 +21,65 @@ export default function Pending() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  useEffect(() => { loadEmails(); }, []);
-  useEffect(() => { filterEmails(); }, [emails, searchTerm]);
+  useEffect(() => {
+    loadEmails();
+  }, []);
+
+  useEffect(() => {
+    filterEmails();
+  }, [emails, searchTerm]);
 
   const loadEmails = () => {
-    const allEmails = getEmails();
-    const pending = allEmails.filter(e => e.status === 'pending');
+    const pending = getEmails().filter(e => e.status === "pending");
     setEmails(pending);
   };
 
   const filterEmails = () => {
-    let filtered = [...emails];
-
+    let list = [...emails];
     if (searchTerm.trim() !== "") {
-      filtered = filtered.filter(e =>
-        (e.subject || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (e.sender || "").toLowerCase().includes(searchTerm.toLowerCase())
+      list = list.filter(e =>
+        e.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        e.sender.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
-    setFilteredEmails(filtered);
+    setFilteredEmails(list);
   };
 
-  const handleClassify = (id: string, category: string, priority: Email["priority"]) => {
-    updateEmail(id, { status: "classified", category, priority });
+  const findEmail = (id: string) => emails.find(e => e.id === id)!;
+
+  const handleClassify = (id: string) => {
+    const e = findEmail(id);
+    
+    if (!e.priority || !e.category || !e.state) {
+      toast({
+        title: "Preencha todos os campos!",
+        description: "Selecione Categoria, Prioridade e Estado antes de finalizar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    updateEmail(id, {
+      status: "classified",
+      category: e.category,
+      priority: e.priority,
+      state: e.state,
+    });
 
     toast({
       title: "E-mail classificado!",
-      description: `Categoria: ${category} | Prioridade: ${priority}`,
+      description: `${e.category} | ${e.priority} | ${e.state}`,
     });
-
+    
     loadEmails();
   };
 
-  // ---- Função de Arquivar ----
   const handleArchive = (id: string) => {
     updateEmail(id, { status: "archived" });
-
     toast({
-      title: "E-mail arquivado!",
+      title: "E-mail arquivado",
       description: "Movido para histórico.",
     });
-
     loadEmails();
   };
 
@@ -63,7 +87,7 @@ export default function Pending() {
     <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-3xl font-bold text-foreground mb-2">E-mails Pendentes</h1>
-        <p className="text-muted-foreground">Classifique ou arquive os e-mails pendentes</p>
+        <p className="text-muted-foreground">Classifique todos os campos: Categoria, Prioridade e Estado</p>
       </div>
 
       <Card>
@@ -73,7 +97,6 @@ export default function Pending() {
             Filtros
           </CardTitle>
         </CardHeader>
-
         <CardContent>
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1 relative">
@@ -89,7 +112,6 @@ export default function Pending() {
         </CardContent>
       </Card>
 
-      {/* LISTA */}
       <div className="space-y-4">
         {filteredEmails.length === 0 ? (
           <Card>
@@ -99,28 +121,19 @@ export default function Pending() {
             </CardContent>
           </Card>
         ) : (
-          filteredEmails.map((email, index) => (
-            <Card key={email.id} className="hover:shadow-md transition p-4" style={{ animationDelay:`${index * 0.05}s` }}>
-              <div className="flex flex-col gap-4">
-
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-semibold text-lg">{email.subject}</h3>
-                    <p className="text-sm text-muted-foreground">De: {email.sender}</p>
-                  </div>
+          filteredEmails.map((email) => (
+            <Card key={email.id} className="hover:shadow-md transition p-4">
+              <div className="space-y-3">
+                <div>
+                  <h3 className="font-bold text-lg">{email.subject}</h3>
+                  <p className="text-sm text-muted-foreground">De: {email.sender}</p>
                 </div>
 
-                <Button variant="outline" size="sm" onClick={()=>navigate(`/email/${email.id}`)}>
-                  <Eye className="h-4 w-4 mr-2" /> Ver detalhes
-                </Button>
-
-                {/* --- CLASSIFICAÇÃO E AÇÃO --- */}
                 <div className="flex flex-col md:flex-row gap-3">
-
                   {/* Categoria */}
-                  <Select onValueChange={(v)=> email.category = v}>
-                    <SelectTrigger className="w-full md:w-[200px]">
-                      <SelectValue placeholder="Categoria..." />
+                  <Select onValueChange={(v) => { email.category = v; }}>
+                    <SelectTrigger className="w-full md:w-[180px]">
+                      <SelectValue placeholder="Categoria" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Trabalho">Trabalho</SelectItem>
@@ -132,9 +145,9 @@ export default function Pending() {
                   </Select>
 
                   {/* Prioridade */}
-                  <Select onValueChange={(v)=> email.priority = v as Email["priority"]}>
-                    <SelectTrigger className="w-full md:w-[200px]">
-                      <SelectValue placeholder="Prioridade..." />
+                  <Select onValueChange={(v) => { email.priority = v as Email["priority"]; }}>
+                    <SelectTrigger className="w-full md:w-[180px]">
+                      <SelectValue placeholder="Prioridade" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="low">Baixa</SelectItem>
@@ -144,27 +157,40 @@ export default function Pending() {
                     </SelectContent>
                   </Select>
 
-                  <Button
-                    size="sm"
-                    className="flex items-center gap-2"
-                    onClick={()=>handleClassify(email.id,email.category!,email.priority!)}
-                  >
-                    <CheckCircle className="h-4 w-4" />
+                  {/* Estado */}
+                  <Select onValueChange={(v) => { email.state = v; }}>
+                    <SelectTrigger className="w-full md:w-[180px]">
+                      <SelectValue placeholder="Estado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {estadosBrasil.map((uf) => (
+                        <SelectItem key={uf} value={uf}>
+                          {uf}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Button onClick={() => handleClassify(email.id)}>
+                    <CheckCircle className="h-4 w-4 mr-2" />
                     Finalizar
                   </Button>
 
-                  {/* Arquivar */}
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="flex items-center gap-2"
-                    onClick={()=>handleArchive(email.id)}
-                  >
-                    <Archive className="h-4 w-4" />
+                  <Button variant="secondary" onClick={() => handleArchive(email.id)}>
+                    <Archive className="h-4 w-4 mr-2" />
                     Arquivar
                   </Button>
-
                 </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(`/email/${email.id}`)}
+                  className="w-full md:w-auto"
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  Ver Detalhes
+                </Button>
               </div>
             </Card>
           ))

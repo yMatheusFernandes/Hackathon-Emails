@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { LayoutDashboard, Mail, Plus, History, Menu } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export function AppSidebar() {
   const [open, setOpen] = useState(true);
@@ -13,45 +19,66 @@ export function AppSidebar() {
   ];
 
   return (
-    <div
-      className={`border-r border-sidebar-border transition-all duration-300
-      ${open ? "w-64" : "w-16"}`}
-    >
-      <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
-        {open && (
-          <div className="flex items-center gap-2">
-            <Mail className="h-6 w-6 text-sidebar-primary" />
-            <h2 className="text-lg font-bold text-sidebar-foreground">
-              EmailManager
-            </h2>
-          </div>
-        )}
+    <TooltipProvider>
+      <div
+        className={`h-screen flex flex-col transition-all duration-300 border-r
+        ${open ? "w-64" : "w-20"}
+        bg-[#0D1B2A] border-[#1B263B] text-white`}
+      >
+        {/* Cabeçalho */}
+        <div className="flex items-center justify-between p-4 border-b border-[#1B263B]">
+          {open && (
+            <div className="flex items-center gap-2">
+              <Mail className="h-6 w-6 text-white" />
+              <h2 className="text-xl font-bold tracking-wide">
+                EmailManager
+              </h2>
+            </div>
+          )}
 
-        <button onClick={() => setOpen(!open)} className="ml-auto">
-          <Menu className="h-5 w-5" />
-        </button>
+          <button
+            onClick={() => setOpen(!open)}
+            className="p-2 rounded-md hover:bg-[#1B263B] transition"
+          >
+            <Menu className="h-5 w-5 text-white" />
+          </button>
+        </div>
+
+        {/* Menu */}
+        <div className="flex-1 py-4 space-y-1">
+          {open && (
+            <span className="px-5 text-xs font-semibold uppercase text-gray-300">
+              Menu Principal
+            </span>
+          )}
+
+          <nav className="mt-2 space-y-1">
+            {menuItems.map((item) => (
+              <Tooltip key={item.title} delayDuration={100}>
+                <TooltipTrigger asChild>
+                  <NavLink
+                    to={item.url}
+                    end={item.url === "/"}
+                    className={`flex items-center gap-3 mx-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                    hover:bg-[#1B263B] hover:text-white`}
+                    activeClassName="bg-[#1B263B] text-white font-semibold shadow-md"
+                  >
+                    <item.icon className="h-5 w-5" />
+                    {open && <span>{item.title}</span>}
+                  </NavLink>
+                </TooltipTrigger>
+
+                {!open && (
+                  <TooltipContent side="right" className="text-xs font-medium">
+                    {item.title}
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            ))}
+          </nav>
+        </div>
+
       </div>
-
-      <div className="mt-2">
-        <span className="block px-4 text-sm text-muted-foreground">
-          {open ? "Menu Principal" : ""}
-        </span>
-
-        <nav className="mt-2 space-y-1">
-          {menuItems.map((item) => (
-            <NavLink
-              key={item.title}
-              to={item.url}
-              end={item.url === "/"}
-              className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors hover:bg-sidebar-accent"
-              activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold"
-            >
-              <item.icon className="h-5 w-5" />
-              {open && <span>{item.title}</span>}
-            </NavLink>
-          ))}
-        </nav>
-      </div>
-    </div>
+    </TooltipProvider>
   );
 }
