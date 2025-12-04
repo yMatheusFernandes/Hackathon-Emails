@@ -20,6 +20,7 @@ export function AppSidebar({ onToggle }: { onToggle?: (open: boolean) => void })
 
   return (
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     <TooltipProvider>
       <div
         className={`
@@ -89,6 +90,8 @@ export function AppSidebar({ onToggle }: { onToggle?: (open: boolean) => void })
       </div>
     </TooltipProvider>
 =======
+=======
+>>>>>>> Stashed changes
     <aside
       className={`
         bg-sidebar text-sidebar-foreground border-r border-sidebar-border 
@@ -149,6 +152,9 @@ export function AppSidebar({ onToggle }: { onToggle?: (open: boolean) => void })
         ))}
       </nav>
     </aside>
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
   );
 }
