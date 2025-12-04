@@ -58,18 +58,15 @@ const estadosBrasil = [
   "RS","RO","RR","SC","SP","SE","TO"
 ];
 
-// Definindo cores para prioridades, usando HSL para combinar com seu tema
 const COLORS = {
   pending: "hsl(var(--warning))",
   classified: "hsl(var(--success))",
   archived: "hsl(var(--muted))",
   urgent: "hsl(var(--destructive))",
-
-  // Cores para prioridades empilhadas
-  low: "#a3e635",      // verde claro
-  medium: "#facc15",   // amarelo
-  high: "#f97316",     // laranja
-  urgentPrio: "hsl(var(--destructive))",  // vermelho (igual ao urgente)
+  low: "#a3e635",
+  medium: "#facc15",
+  high: "#f97316",
+  urgentPrio: "hsl(var(--destructive))",
 };
 
 const ICONS: Record<string, any> = {
@@ -84,6 +81,8 @@ const ICONS: Record<string, any> = {
 export default function Dashboard() {
   const navigate = useNavigate();
   const exportRef = useRef<HTMLDivElement>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const [stats, setStats] = useState({
     total: 0,
@@ -100,7 +99,6 @@ export default function Dashboard() {
   const [emails, setEmails] = useState<any[]>([]);
   const [topStates, setTopStates] = useState<any[]>([]);
   const [topSenders, setTopSenders] = useState<any[]>([]);
-  const [emailsByStateTotal, setEmailsByStateTotal] = useState<any[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newCardTitle, setNewCardTitle] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("all");
@@ -108,109 +106,66 @@ export default function Dashboard() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [stateFilter, setStateFilter] = useState("all");
 
-  // Função para gerar PDF melhorada com logo, título e assinatura final
+  // ---------- FUNÇÕES DE PDF ----------
+  const gerarPreview = async () => {
+    if (!exportRef.current) return alert("Seção do dashboard não encontrada!");
+    try {
+      const canvas = await html2canvas(exportRef.current, {
+        scale: 1.5,
+        useCORS: true,
+        allowTaint: true,
+      });
+      const imgData = canvas.toDataURL("image/png");
+      setPreviewImage(imgData);
+      setIsPreviewOpen(true);
+    } catch (error) {
+      console.error("Erro ao gerar preview:", error);
+      alert("Erro ao gerar preview do relatório");
+    }
+  };
+
   const gerarPDF = async () => {
     if (!exportRef.current) {
       alert("Gráficos não encontrados!");
       return;
     }
-
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // -------- CONVERTER LOGO PARA BASE64 -------- //
-      const logoUrl = "https://www.loja.printstudio.com.br/uploads/produtos/criacao-de-logomarca-basica-arte-digital-99471586279148.jpg";
-
-      const logoBase64 = await new Promise<string>((resolve) => {
-        const img = new Image();
-        img.crossOrigin = "Anonymous";
-        img.src = logoUrl;
-
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          canvas.width = img.width;
-          canvas.height = img.height;
-          const ctx = canvas.getContext("2d");
-          ctx!.drawImage(img, 0, 0);
-          resolve(canvas.toDataURL("image/png"));
-        };
-
-        img.onerror = () => {
-          // fallback: resolve empty string so generation continues without logo
-          resolve("");
-        };
-      });
-
-      // -------- CAPTURA DA ÁREA DO DASHBOARD -------- //
-      const canvas = await html2canvas(exportRef.current, { 
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const canvas = await html2canvas(exportRef.current, {
         scale: 2,
         allowTaint: true,
         useCORS: true,
       });
-
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF("p", "mm", "a4");
-
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-
-      // ---------- CABEÇALHO COM LOGO + TÍTULO + DATA ----------
-      const dataAtual = new Date();
-      const dataFormatada = dataAtual.toLocaleDateString("pt-BR");
-      const horaFormatada = dataAtual.toLocaleTimeString("pt-BR");
-
-      // Inserir logo centralizado se disponível
-      if (logoBase64) {
-        pdf.addImage(logoBase64, "PNG", pageWidth / 2 - 25, 10, 50, 30); // 50x30mm centralizado
-      }
-
-      pdf.setFontSize(22);
-      pdf.text("Relatório - Email Manager", pageWidth / 2, 50, { align: "center" });
-
-      pdf.setFontSize(11);
-      pdf.text(`Gerado em: ${dataFormatada} às ${horaFormatada}`, pageWidth / 2, 58, { align: "center" });
-
-      // ------------ IMAGEM DOS GRÁFICOS -----------------
       const larguraPDF = 190;
       const proporcao = canvas.height / canvas.width;
       const alturaPDF = larguraPDF * proporcao;
 
-      let posY = 70; // começa abaixo da logo e infos
+      pdf.setFontSize(22);
+      pdf.text("Relatório - Email Manager", pageWidth / 2, 20, { align: "center" });
 
-      if (alturaPDF + posY < pageHeight - 30) {
-        pdf.addImage(imgData, "PNG", 10, posY, larguraPDF, alturaPDF);
+      if (alturaPDF + 40 < pageHeight) {
+        pdf.addImage(imgData, "PNG", 10, 30, larguraPDF, alturaPDF);
       } else {
-        // Quebra automática em múltiplas páginas
-        let restante = alturaPDF;
-        let offset = 0;
-
-        while (restante > 0) {
-          if (offset > 0) pdf.addPage();
-          pdf.addImage(imgData, "PNG", 10, 10 - offset, larguraPDF, alturaPDF);
-          restante -= pageHeight;
-          offset += pageHeight;
+        let y = 0;
+        while (y < alturaPDF) {
+          if (y > 0) pdf.addPage();
+          pdf.addImage(imgData, "PNG", 10, 10 - y, larguraPDF, alturaPDF);
+          y += pageHeight;
         }
       }
-
-      // ----------- PÁGINA FINAL COM TEXTO ------------
-      pdf.addPage();
-
-      pdf.setFontSize(16);
-      pdf.text("Relatório concluído ✔", pageWidth / 2, 30, { align: "center" });
-
-      pdf.setFontSize(12);
-      pdf.text("Este relatório foi gerado automaticamente pelo sistema Email Manager.", pageWidth / 2, 45, { align: "center" });
-
-      pdf.text("Obrigado por utilizar nosso sistema!", pageWidth / 2, 60, { align: "center" });
-
       pdf.save("dashboard.pdf");
-
+      setIsPreviewOpen(false);
     } catch (error) {
       console.error("Erro ao gerar PDF:", error);
       alert("Erro ao gerar PDF");
     }
   };
 
+  // ---------- CÁLCULO DE CARDS ----------
   const calculateCardValue = (filters: Record<string, string>) => {
     return emails.filter((email) => {
       const emailCategory = email.category?.toString().trim().toLowerCase() || "";
@@ -218,15 +173,12 @@ export default function Dashboard() {
 
       const matchesStatus =
         !filters.status || filters.status === "all" || email.status === filters.status;
-
       const matchesPriority =
         !filters.priority || filters.priority === "all" || email.priority === filters.priority;
-
       const matchesCategory =
         !filters.category ||
         filters.category === "all" ||
         emailCategory === filters.category.toLowerCase();
-
       const matchesState =
         !filters.state ||
         filters.state === "all" ||
@@ -242,7 +194,6 @@ export default function Dashboard() {
     setStats(emailStats);
     setEmails(allEmails);
 
-    // Gráfico Pizza já existente
     const statusData = [
       { name: "Pendentes", value: emailStats.pending, color: COLORS.pending },
       { name: "Classificados", value: emailStats.classified, color: COLORS.classified },
@@ -250,7 +201,6 @@ export default function Dashboard() {
     ];
     setChartData(statusData);
 
-    // Tendência diária - existente
     const last7Days = Array.from({ length: 7 }, (_, i) => {
       const date = new Date();
       date.setDate(date.getDate() - (6 - i));
@@ -268,7 +218,6 @@ export default function Dashboard() {
     });
     setDailyTrend(trendData);
 
-    // --- Agrupar por estado ---
     const emailByState = allEmails.reduce((acc, email) => {
       const state = email.state || "Não informado";
       if (!acc[state]) acc[state] = 0;
@@ -280,10 +229,8 @@ export default function Dashboard() {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([state, count]) => ({ state, count }));
-
     setTopStates(top5States);
 
-    // --- Top 5 Remetentes ---
     const emailBySender = allEmails.reduce((acc, email) => {
       const sender = email.sender || "Desconhecido";
       if (!acc[sender]) acc[sender] = 0;
@@ -295,9 +242,7 @@ export default function Dashboard() {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([sender, count]) => ({ sender, count }));
-
     setTopSenders(top5Senders);
-
   }, []);
 
   useEffect(() => {
@@ -371,17 +316,13 @@ export default function Dashboard() {
       if (card.customFilters.priority) params.append("priority", card.customFilters.priority);
       if (card.customFilters.category) params.append("category", card.customFilters.category);
       if (card.customFilters.state) params.append("state", card.customFilters.state);
-
       navigate(`/history?${params.toString()}`);
       return;
     }
-
-    // Redirecionar "Pendentes" para página /pending
     if (card.title === "Pendentes") {
       navigate("/pending");
       return;
     }
-
     const filterStatus = card.filterStatus;
     if (!filterStatus) return navigate("/history");
     if (filterStatus === "urgent") return navigate("/history?priority=urgent");
@@ -390,14 +331,11 @@ export default function Dashboard() {
 
   const addCustomCard = () => {
     if (!newCardTitle.trim()) return;
-
     const filters: Record<string, string> = {};
     if (categoryFilter !== "all") filters.category = categoryFilter;
     if (statusFilter !== "all") filters.status = statusFilter;
     if (stateFilter !== "all") filters.state = stateFilter;
-
     const value = calculateCardValue(filters);
-
     const newCard = {
       title: newCardTitle,
       value,
@@ -406,11 +344,9 @@ export default function Dashboard() {
       bgColor: "bg-primary/10",
       customFilters: filters,
     };
-
     const updated = [...customCards, newCard];
     setCustomCards(updated);
     localStorage.setItem("customDashboardCards", JSON.stringify(updated));
-
     setNewCardTitle("");
     setPriorityFilter("all");
     setCategoryFilter("all");
@@ -438,39 +374,25 @@ export default function Dashboard() {
           <Button onClick={() => setIsDialogOpen(true)} size="sm">
             <Plus className="h-4 w-4 mr-1" /> Adicionar Atalho
           </Button>
-          <Button variant="outline" size="sm" onClick={gerarPDF}>
-            <FileDown className="h-4 w-4 mr-1" /> PDF
+          <Button variant="outline" size="sm" onClick={gerarPreview}>
+            <FileDown className="h-4 w-4 mr-1" /> Pré-visualizar PDF
           </Button>
         </div>
       </div>
 
-      {/* POPUP DE NOVO ATALHO */}
+      {/* DIALOG DE NOVO ATALHO */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Novo Atalho Personalizado</DialogTitle>
           </DialogHeader>
-
           <div className="space-y-4 py-2">
             <Input
               placeholder="Ex: Urgentes - Suporte"
               value={newCardTitle}
               onChange={(e) => setNewCardTitle(e.target.value)}
             />
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
-              <div>
-                <label className="text-sm text-muted-foreground">Status</label>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="classified">Classificados</SelectItem>
-                    <SelectItem value="archived">Arquivados</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
               <div>
                 <label className="text-sm text-muted-foreground">Categoria</label>
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
@@ -484,7 +406,6 @@ export default function Dashboard() {
                   </SelectContent>
                 </Select>
               </div>
-
               <div>
                 <label className="text-sm text-muted-foreground">Estado</label>
                 <Select value={stateFilter} onValueChange={setStateFilter}>
@@ -501,12 +422,35 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               Cancelar
             </Button>
             <Button onClick={addCustomCard}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIALOG DO PREVIEW DO PDF */}
+      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <DialogContent className="max-w-5xl">
+          <DialogHeader>
+            <DialogTitle>Pré-visualização do Relatório</DialogTitle>
+          </DialogHeader>
+          {previewImage ? (
+            <div className="max-h-[70vh] overflow-auto border rounded-md">
+              <img src={previewImage} alt="Prévia do PDF" className="w-full" />
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground py-10">
+              Gerando preview...
+            </p>
+          )}
+          <DialogFooter className="pt-4">
+            <Button variant="outline" onClick={() => setIsPreviewOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={gerarPDF}>Baixar PDF</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -551,13 +495,9 @@ export default function Dashboard() {
         })}
       </div>
 
-      {/* GRÁFICOS - EXPORTAR APENAS ESTA SEÇÃO */}
+      {/* GRÁFICOS */}
       <div id="dashboard-export" ref={exportRef} className="space-y-6">
-
-        {/* GRÁFICOS */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-          {/* Gráfico Pizza existente */}
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader><CardTitle>E-mails por Estado</CardTitle></CardHeader>
             <CardContent className="h-[300px]">
@@ -582,7 +522,6 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* Gráfico tendência diária existente */}
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader><CardTitle>Tendência Diária (Últimos 7 dias)</CardTitle></CardHeader>
             <CardContent className="h-[300px]">
@@ -617,13 +556,10 @@ export default function Dashboard() {
               </ResponsiveContainer>
             </CardContent>
           </Card>
-
         </div>
 
-        {/* NOVOS GRÁFICOS */}
+        {/* TOP 5 ESTADOS E REMETENTES */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-
-          {/* Top 5 Estados por Volume */}
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader><CardTitle>Top 5 Estados por Volume</CardTitle></CardHeader>
             <CardContent className="h-[300px]">
@@ -645,31 +581,28 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-         
-         {/* Top 5 Remetentes */}
-<Card className="hover:shadow-lg transition-shadow">
-  <CardHeader><CardTitle>Top 5 Remetentes</CardTitle></CardHeader>
-  <CardContent className="h-[300px] overflow-y-auto">
-    <ul className="w-full space-y-3">
-      {topSenders.map(({ sender, count }, i) => (
-        <li
-          key={i}
-onClick={() => navigate(`/all-emails?sender=${encodeURIComponent(sender)}`)}
-
-
-          className="flex justify-between items-center border-b pb-2 text-sm cursor-pointer hover:bg-accent/40 p-2 rounded-md transition"
-        >
-          <span className="font-medium break-words">{i + 1}. {sender}</span>
-          <span className="text-lg font-bold text-primary">{count}</span>
-        </li>
-      ))}
-    </ul>
-  </CardContent>
-</Card>
-
-
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader><CardTitle>Top 5 Remetentes</CardTitle></CardHeader>
+            <CardContent className="h-[300px] overflow-y-auto">
+              <ul className="w-full space-y-3">
+                {topSenders.map(({ sender, count }, i) => (
+                  <li
+                    key={i}
+                    onClick={() =>
+                      navigate(`/all-emails?sender=${encodeURIComponent(sender)}`)
+                    }
+                    className="flex justify-between items-center border-b pb-2 text-sm cursor-pointer hover:bg-accent/40 p-2 rounded-md transition"
+                  >
+                    <span className="font-medium break-words">
+                      {i + 1}. {sender}
+                    </span>
+                    <span className="text-lg font-bold text-primary">{count}</span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
         </div>
-
       </div>
     </div>
   );
