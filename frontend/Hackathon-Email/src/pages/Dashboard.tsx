@@ -101,7 +101,6 @@ export default function Dashboard() {
   const [topStates, setTopStates] = useState<any[]>([]);
   const [topSenders, setTopSenders] = useState<any[]>([]);
   const [emailsByStateTotal, setEmailsByStateTotal] = useState<any[]>([]);
-  const [prioritiesByState, setPrioritiesByState] = useState<any[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newCardTitle, setNewCardTitle] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("all");
@@ -240,19 +239,6 @@ export default function Dashboard() {
 
     setTopSenders(top5Senders);
 
-    // NOVO: Dados para gráfico empilhado de prioridades por estado
-    const prioritiesPorEstado = estadosBrasil.map((state) => {
-      const emailsInState = allEmails.filter(e => e.state === state);
-      return {
-        state,
-        low: emailsInState.filter(e => e.priority === "low").length,
-        medium: emailsInState.filter(e => e.priority === "medium").length,
-        high: emailsInState.filter(e => e.priority === "high").length,
-        urgent: emailsInState.filter(e => e.priority === "urgent").length,
-      };
-    });
-    setPrioritiesByState(prioritiesPorEstado);
-
   }, []);
 
   useEffect(() => {
@@ -347,7 +333,6 @@ export default function Dashboard() {
     if (!newCardTitle.trim()) return;
 
     const filters: Record<string, string> = {};
-    if (priorityFilter !== "all") filters.priority = priorityFilter;
     if (categoryFilter !== "all") filters.category = categoryFilter;
     if (statusFilter !== "all") filters.status = statusFilter;
     if (stateFilter !== "all") filters.state = stateFilter;
@@ -414,7 +399,7 @@ export default function Dashboard() {
               onChange={(e) => setNewCardTitle(e.target.value)}
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
               <div>
                 <label className="text-sm text-muted-foreground">Status</label>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -423,20 +408,6 @@ export default function Dashboard() {
                     <SelectItem value="all">Todos</SelectItem>
                     <SelectItem value="classified">Classificados</SelectItem>
                     <SelectItem value="archived">Arquivados</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <label className="text-sm text-muted-foreground">Urgência</label>
-                <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                  <SelectTrigger><SelectValue placeholder="Urgência" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    <SelectItem value="low">Baixa</SelectItem>
-                    <SelectItem value="medium">Média</SelectItem>
-                    <SelectItem value="high">Alta</SelectItem>
-                    <SelectItem value="urgent">Urgente</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -634,40 +605,6 @@ export default function Dashboard() {
           </Card>
 
         </div>
-
-        {/* Gráfico Prioridades por Estado — FULL WIDTH */}
-        <Card className="hover:shadow-lg transition-shadow mt-6 w-full">
-          <CardHeader><CardTitle>Prioridade por Estado</CardTitle></CardHeader>
-          <CardContent className="h-[450px]"> 
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart 
-                data={prioritiesByState} 
-                margin={{ top: 20, right: 20, left: 10, bottom: 40 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-
-                {/* Estados ficam embaixo, como colunas (horizontal visível) */}
-                <XAxis dataKey="state" stroke="hsl(var(--muted-foreground))" />
-                <YAxis stroke="hsl(var(--muted-foreground))" />
-
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--popover))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "0.5rem",
-                  }}
-                />
-                <Legend />
-
-                {/* Barras empilhadas por prioridade (vertical), ocupando largura total */}
-                <Bar dataKey="low" fill={COLORS.low} name="Baixa" />
-                <Bar dataKey="medium" fill={COLORS.medium} name="Média" />
-                <Bar dataKey="high" fill={COLORS.high} name="Alta" />
-                <Bar dataKey="urgent" fill={COLORS.urgentPrio} name="Urgente" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
 
       </div>
     </div>

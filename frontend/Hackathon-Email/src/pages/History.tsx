@@ -24,7 +24,6 @@ export default function History() {
   const location = useLocation();
 
   const urlStatus = query.get("status") ?? "all";
-  const urlPriority = query.get("priority") ?? "all";
   const urlCategory = query.get("category") ?? "all";
   const urlSearch = query.get("search") ?? "";
   const urlState = query.get("state") ?? "all";
@@ -35,7 +34,6 @@ export default function History() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState(urlStatus);
   const [categoryFilter, setCategoryFilter] = useState(urlCategory);
-  const [priorityFilter, setPriorityFilter] = useState(urlPriority);
   const [stateFilter, setStateFilter] = useState(urlState);
   const [sortOption, setSortOption] = useState(urlSort);
 
@@ -45,7 +43,6 @@ export default function History() {
     setSearchTerm(urlSearch);
     setStatusFilter(urlStatus);
     setCategoryFilter(urlCategory);
-    setPriorityFilter(urlPriority);
     setStateFilter(urlState);
     setSortOption(urlSort);
   }, [location.search]);
@@ -62,7 +59,6 @@ export default function History() {
     }
 
     if (statusFilter !== "all") filtered = filtered.filter(e => e.status === statusFilter);
-    if (priorityFilter !== "all") filtered = filtered.filter(e => e.priority === priorityFilter);
     if (categoryFilter !== "all") filtered = filtered.filter(e => e.category?.toLowerCase() === categoryFilter.toLowerCase());
     if (stateFilter !== "all") filtered = filtered.filter(e => e.state === stateFilter);
 
@@ -73,13 +69,12 @@ export default function History() {
     );
 
     setFilteredEmails(filtered);
-  }, [emails, searchTerm, statusFilter, categoryFilter, priorityFilter, stateFilter, sortOption]);
+  }, [emails, searchTerm, statusFilter, categoryFilter, stateFilter, sortOption]);
 
   const clearFilters = () => {
     setSearchTerm("");
     setStatusFilter("all");
     setCategoryFilter("all");
-    setPriorityFilter("all");
     setStateFilter("all");
     setSortOption("newest");
     navigate("/history");
@@ -90,19 +85,11 @@ export default function History() {
     archived: 'bg-muted text-muted-foreground',
   }[status] ?? "");
 
-  const getPriorityColor = (priority: Email['priority']) => ({
-    low: 'bg-muted text-muted-foreground',
-    medium: 'bg-blue-500/20 text-blue-700',
-    high: 'bg-yellow-500/20 text-yellow-700',
-    urgent: 'bg-red-500/20 text-red-700',
-  }[priority] ?? "");
-
   const categoriesBase = ["Trabalho", "Pessoal", "Financeiro", "Suporte", "Marketing"];
   const categories = Array.from(new Set([...categoriesBase, ...emails.map(e => e.category).filter(Boolean)]));
 
   const hasActiveFilters =
     statusFilter !== "all" ||
-    priorityFilter !== "all" ||
     categoryFilter !== "all" ||
     stateFilter !== "all" ||
     searchTerm !== "" ||
@@ -143,25 +130,7 @@ export default function History() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger><SelectValue placeholder="Status"/></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="classified">Classificados</SelectItem>
-                <SelectItem value="archived">Arquivados</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-              <SelectTrigger><SelectValue placeholder="Urgência"/></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                <SelectItem value="low">Baixa</SelectItem>
-                <SelectItem value="medium">Média</SelectItem>
-                <SelectItem value="high">Alta</SelectItem>
-                <SelectItem value="urgent">Urgente</SelectItem>
-              </SelectContent>
-            </Select>
+           
 
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
               <SelectTrigger><SelectValue placeholder="Categoria"/></SelectTrigger>
@@ -178,10 +147,7 @@ export default function History() {
                 {estadosBrasil.map(uf => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
               </SelectContent>
             </Select>
-          </div>
-
-          <div>
-            <label className="text-xs text-muted-foreground">Ordenar por</label>
+{/* <label className="text-xs text-muted-foreground">Ordenar por</label>*/}
             <Select value={sortOption} onValueChange={setSortOption}>
               <SelectTrigger><SelectValue/></SelectTrigger>
               <SelectContent>
@@ -189,6 +155,10 @@ export default function History() {
                 <SelectItem value="oldest">Mais antigos primeiro</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div>
+           
           </div>
 
           <p className="text-sm text-muted-foreground">
@@ -207,7 +177,6 @@ export default function History() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-semibold">{email.subject}</h3>
                   <Badge className={getStatusColor(email.status)}>{email.status}</Badge>
-                  {email.priority && <Badge className={getPriorityColor(email.priority)}>{email.priority}</Badge>}
                   {email.category && <Badge variant="outline">{email.category}</Badge>}
                   {email.state && <Badge variant="outline">{email.state}</Badge>}
                 </div>

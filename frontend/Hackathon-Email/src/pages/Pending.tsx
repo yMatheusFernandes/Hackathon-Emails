@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getEmails, updateEmail, type Email } from "@/lib/emailStorage";
-import { Mail, Search, Filter, Eye, CheckCircle, Archive } from "lucide-react";
+import { Mail, Search, Filter, Eye, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const estadosBrasil = [
@@ -50,10 +50,10 @@ export default function Pending() {
   const handleClassify = (id: string) => {
     const e = findEmail(id);
     
-    if (!e.priority || !e.category || !e.state) {
+    if (!e.category || !e.state) {
       toast({
         title: "Preencha todos os campos!",
-        description: "Selecione Categoria, Prioridade e Estado antes de finalizar.",
+        description: "Selecione Categoria e Estado antes de finalizar.",
         variant: "destructive",
       });
       return;
@@ -62,24 +62,14 @@ export default function Pending() {
     updateEmail(id, {
       status: "classified",
       category: e.category,
-      priority: e.priority,
       state: e.state,
     });
 
     toast({
       title: "E-mail classificado!",
-      description: `${e.category} | ${e.priority} | ${e.state}`,
+      description: `${e.category} | ${e.state}`,
     });
     
-    loadEmails();
-  };
-
-  const handleArchive = (id: string) => {
-    updateEmail(id, { status: "archived" });
-    toast({
-      title: "E-mail arquivado",
-      description: "Movido para histórico.",
-    });
     loadEmails();
   };
 
@@ -144,19 +134,6 @@ export default function Pending() {
                     </SelectContent>
                   </Select>
 
-                  {/* Prioridade */}
-                  <Select onValueChange={(v) => { email.priority = v as Email["priority"]; }}>
-                    <SelectTrigger className="w-full md:w-[180px]">
-                      <SelectValue placeholder="Prioridade" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Baixa</SelectItem>
-                      <SelectItem value="medium">Média</SelectItem>
-                      <SelectItem value="high">Alta</SelectItem>
-                      <SelectItem value="urgent">Urgente</SelectItem>
-                    </SelectContent>
-                  </Select>
-
                   {/* Estado */}
                   <Select onValueChange={(v) => { email.state = v; }}>
                     <SelectTrigger className="w-full md:w-[180px]">
@@ -174,11 +151,6 @@ export default function Pending() {
                   <Button onClick={() => handleClassify(email.id)}>
                     <CheckCircle className="h-4 w-4 mr-2" />
                     Finalizar
-                  </Button>
-
-                  <Button variant="secondary" onClick={() => handleArchive(email.id)}>
-                    <Archive className="h-4 w-4 mr-2" />
-                    Arquivar
                   </Button>
                 </div>
 
