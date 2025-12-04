@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Card,
@@ -31,7 +31,10 @@ import {
   TrendingUp,
   Plus,
   Trash2,
+  FileDown,
 } from "lucide-react";
+import { jsPDF } from "jspdf";
+import html2canvas from "html2canvas";
 import { getEmailStats, getEmails } from "@/lib/emailStorage";
 import {
   LineChart,
@@ -55,11 +58,18 @@ const estadosBrasil = [
   "RS","RO","RR","SC","SP","SE","TO"
 ];
 
+// Definindo cores para prioridades, usando HSL para combinar com seu tema
 const COLORS = {
   pending: "hsl(var(--warning))",
   classified: "hsl(var(--success))",
   archived: "hsl(var(--muted))",
   urgent: "hsl(var(--destructive))",
+
+  // Cores para prioridades empilhadas
+  low: "#a3e635",      // verde claro
+  medium: "#facc15",   // amarelo
+  high: "#f97316",     // laranja
+  urgentPrio: "hsl(var(--destructive))",  // vermelho (igual ao urgente)
 };
 
 const ICONS: Record<string, any> = {
@@ -73,6 +83,8 @@ const ICONS: Record<string, any> = {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const dashboardRef = useRef<HTMLDivElement>(null);
+
   const [stats, setStats] = useState({
     total: 0,
     pending: 0,
@@ -86,16 +98,35 @@ export default function Dashboard() {
   const [dailyTrend, setDailyTrend] = useState<any[]>([]);
   const [customCards, setCustomCards] = useState<any[]>([]);
   const [emails, setEmails] = useState<any[]>([]);
-  const [emailsByStatePriority, setEmailsByStatePriority] = useState<any[]>([]); // NOVO: estado + prioridade
-
+  const [emailsByStateTotal, setEmailsByStateTotal] = useState<any[]>([]);
+  const [prioritiesByState, setPrioritiesByState] = useState<any[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newCardTitle, setNewCardTitle] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [stateFilter, setStateFilter] = useState("all"); // NOVO: filtro de estado
+  const [stateFilter, setStateFilter] = useState("all");
 
-  // Conta os e-mails conforme filtros, incluindo o estado agora
+  // Função para gerar PDF
+  const gerarPDF = async () => {
+    if (!dashboardRef.current) return;
+
+    try {
+      const canvas = await html2canvas(dashboardRef.current, { scale: 2 });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const imgWidth = pageWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
+      pdf.save("dashboard.pdf");
+    } catch (error) {
+      console.error("Erro ao gerar PDF:", error);
+    }
+  };
+
   const calculateCardValue = (filters: Record<string, string>) => {
     return emails.filter((email) => {
       const emailCategory = email.category?.toString().trim().toLowerCase() || "";
@@ -127,6 +158,7 @@ export default function Dashboard() {
     setStats(emailStats);
     setEmails(allEmails);
 
+    // Gráfico Pizza já existente
     const statusData = [
       { name: "Pendentes", value: emailStats.pending, color: COLORS.pending },
       { name: "Classificados", value: emailStats.classified, color: COLORS.classified },
@@ -134,6 +166,7 @@ export default function Dashboard() {
     ];
     setChartData(statusData);
 
+    // Tendência diária - existente
     const last7Days = Array.from({ length: 7 }, (_, i) => {
       const date = new Date();
       date.setDate(date.getDate() - (6 - i));
@@ -151,24 +184,27 @@ export default function Dashboard() {
     });
     setDailyTrend(trendData);
 
-    // NOVO: Montar dados para gráfico de e-mails por estado e prioridade
-    const states = estadosBrasil;
-    const priorities = ["low", "medium", "high", "urgent"];
-
-    const groupedData = states.map((state) => {
-      const emailsInState = allEmails.filter(e => e.state === state);
-      const dataItem: any = { state };
-
-      priorities.forEach(priority => {
-        dataItem[priority] = emailsInState.filter(e => e.priority === priority).length;
-      });
-
-      dataItem.total = emailsInState.length;
-
-      return dataItem;
+    // NOVO: Dados para gráfico total por estado
+    const totalPorEstado = estadosBrasil.map((state) => {
+      return {
+        state,
+        total: allEmails.filter(e => e.state === state).length,
+      };
     });
+    setEmailsByStateTotal(totalPorEstado);
 
-    setEmailsByStatePriority(groupedData);
+    // NOVO: Dados para gráfico empilhado de prioridades por estado
+    const prioritiesPorEstado = estadosBrasil.map((state) => {
+      const emailsInState = allEmails.filter(e => e.state === state);
+      return {
+        state,
+        low: emailsInState.filter(e => e.priority === "low").length,
+        medium: emailsInState.filter(e => e.priority === "medium").length,
+        high: emailsInState.filter(e => e.priority === "high").length,
+        urgent: emailsInState.filter(e => e.priority === "urgent").length,
+      };
+    });
+    setPrioritiesByState(prioritiesPorEstado);
 
   }, []);
 
@@ -236,14 +272,13 @@ export default function Dashboard() {
     ...customCards,
   ];
 
-  // Ação ao clicar no card
   const handleCardClick = (card: any) => {
     if (card.customFilters) {
       const params = new URLSearchParams();
       if (card.customFilters.status) params.append("status", card.customFilters.status);
       if (card.customFilters.priority) params.append("priority", card.customFilters.priority);
       if (card.customFilters.category) params.append("category", card.customFilters.category);
-      if (card.customFilters.state) params.append("state", card.customFilters.state); // Novo
+      if (card.customFilters.state) params.append("state", card.customFilters.state);
 
       navigate(`/history?${params.toString()}`);
       return;
@@ -255,7 +290,6 @@ export default function Dashboard() {
     navigate(`/history?status=${filterStatus}`);
   };
 
-  // Criar novo atalho
   const addCustomCard = () => {
     if (!newCardTitle.trim()) return;
 
@@ -263,7 +297,7 @@ export default function Dashboard() {
     if (priorityFilter !== "all") filters.priority = priorityFilter;
     if (categoryFilter !== "all") filters.category = categoryFilter;
     if (statusFilter !== "all") filters.status = statusFilter;
-    if (stateFilter !== "all") filters.state = stateFilter; // Novo filtro estado
+    if (stateFilter !== "all") filters.state = stateFilter;
 
     const value = calculateCardValue(filters);
 
@@ -284,7 +318,7 @@ export default function Dashboard() {
     setPriorityFilter("all");
     setCategoryFilter("all");
     setStatusFilter("all");
-    setStateFilter("all"); // resetar filtro estado
+    setStateFilter("all");
     setIsDialogOpen(false);
   };
 
@@ -295,7 +329,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in" ref={dashboardRef}>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard</h1>
@@ -303,9 +337,14 @@ export default function Dashboard() {
             Visão geral do sistema de gestão de e-mails
           </p>
         </div>
-        <Button onClick={() => setIsDialogOpen(true)} size="sm">
-          <Plus className="h-4 w-4 mr-1" /> Adicionar Atalho
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setIsDialogOpen(true)} size="sm">
+            <Plus className="h-4 w-4 mr-1" /> Adicionar Atalho
+          </Button>
+          <Button variant="outline" size="sm" onClick={gerarPDF}>
+            <FileDown className="h-4 w-4 mr-1" /> PDF
+          </Button>
+        </div>
       </div>
 
       {/* POPUP DE NOVO ATALHO */}
@@ -322,7 +361,7 @@ export default function Dashboard() {
               onChange={(e) => setNewCardTitle(e.target.value)}
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4"> {/* agora 4 colunas */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label className="text-sm text-muted-foreground">Status</label>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -363,7 +402,6 @@ export default function Dashboard() {
                 </Select>
               </div>
 
-              {/* NOVO FILTRO ESTADO */}
               <div>
                 <label className="text-sm text-muted-foreground">Estado</label>
                 <Select value={stateFilter} onValueChange={setStateFilter}>
@@ -432,6 +470,8 @@ export default function Dashboard() {
 
       {/* GRÁFICOS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        {/* Gráfico Pizza existente */}
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader><CardTitle>E-mails por Estado</CardTitle></CardHeader>
           <CardContent className="h-[300px]">
@@ -456,6 +496,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
+        {/* Gráfico tendência diária existente */}
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader><CardTitle>Tendência Diária (Últimos 7 dias)</CardTitle></CardHeader>
           <CardContent className="h-[300px]">
@@ -471,53 +512,105 @@ export default function Dashboard() {
                     borderRadius: "0.5rem",
                   }}
                 />
-               <Legend />
-                <Line type="monotone" dataKey="emails" stroke="hsl(var(--primary))" strokeWidth={2} name="Total de E-mails" />
-                <Line type="monotone" dataKey="pending" stroke="hsl(var(--warning))" strokeWidth={2} name="Pendentes" />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="emails"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={2}
+                  name="Total de E-mails"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="pending"
+                  stroke="hsl(var(--warning))"
+                  strokeWidth={2}
+                  name="Pendentes"
+                />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
+
       </div>
 
-      {/* NOVO GRÁFICO: E-mails por Estado e Prioridade */}
-      <Card className="hover:shadow-lg transition-shadow mt-6">
-        <CardHeader>
-          <CardTitle>E-mails por Estado e Prioridade</CardTitle>
-        </CardHeader>
-        <CardContent className="h-[400px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={emailsByStatePriority}
-              margin={{ top: 20, right: 30, left: 20, bottom: 80 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis
-                dataKey="state"
-                stroke="hsl(var(--muted-foreground))"
-                angle={-45}
-                textAnchor="end"
-                interval={0}
-                height={60}
-              />
-              <YAxis stroke="hsl(var(--muted-foreground))" />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "hsl(var(--popover))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "0.5rem",
-                }}
-              />
-              <Legend verticalAlign="top" height={36} />
-              
-              <Bar dataKey="low" stackId="a" fill="#60a5fa" name="Baixa" />
-              <Bar dataKey="medium" stackId="a" fill="#3b82f6" name="Média" />
-              <Bar dataKey="high" stackId="a" fill="#2563eb" name="Alta" />
-              <Bar dataKey="urgent" stackId="a" fill="#dc2626" name="Urgente" />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+      {/* NOVOS GRÁFICOS DE ESTADO, DEITADOS (LADO A LADO) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+
+        {/* Gráfico Total por Estado */}
+        <Card className="hover:shadow-lg transition-shadow">
+          <CardHeader><CardTitle>Total de E-mails por Estado</CardTitle></CardHeader>
+          <CardContent className="h-[350px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={emailsByStateTotal}
+                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                layout="vertical"
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis type="number" stroke="hsl(var(--muted-foreground))" />
+                <YAxis
+                  dataKey="state"
+                  type="category"
+                  stroke="hsl(var(--muted-foreground))"
+                  width={40}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--popover))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "0.5rem",
+                  }}
+                />
+                <Legend />
+                <Bar dataKey="total" fill="hsl(var(--primary))" name="Total" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Gráfico Prioridades por Estado (Empilhado) */}
+        <Card className="hover:shadow-lg transition-shadow">
+          <CardHeader><CardTitle>Prioridades por Estado</CardTitle></CardHeader>
+          <CardContent className="h-[350px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={prioritiesByState}
+                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                layout="vertical"
+                stackOffset="expand"
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis
+                  type="number"
+                  stroke="hsl(var(--muted-foreground))"
+                  tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
+                />
+                <YAxis
+                  dataKey="state"
+                  type="category"
+                  stroke="hsl(var(--muted-foreground))"
+                  width={40}
+                />
+                <Tooltip
+                  formatter={(value: number) => value}
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--popover))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "0.5rem",
+                  }}
+                />
+                <Legend />
+                <Bar dataKey="low" stackId="a" fill={COLORS.low} name="Baixa" />
+                <Bar dataKey="medium" stackId="a" fill={COLORS.medium} name="Média" />
+                <Bar dataKey="high" stackId="a" fill={COLORS.high} name="Alta" />
+                <Bar dataKey="urgent" stackId="a" fill={COLORS.urgentPrio} name="Urgente" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+      </div>
     </div>
   );
 }
