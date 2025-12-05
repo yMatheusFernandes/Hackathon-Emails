@@ -1,12 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { fetchDashboardStats } from "@/services/api";
 import { useNavigate } from "react-router-dom";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -53,9 +48,33 @@ import {
 } from "recharts";
 
 const estadosBrasil = [
-  "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA",
-  "MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN",
-  "RS","RO","RR","SC","SP","SE","TO"
+  "AC",
+  "AL",
+  "AP",
+  "AM",
+  "BA",
+  "CE",
+  "DF",
+  "ES",
+  "GO",
+  "MA",
+  "MT",
+  "MS",
+  "MG",
+  "PA",
+  "PB",
+  "PR",
+  "PE",
+  "PI",
+  "RJ",
+  "RN",
+  "RS",
+  "RO",
+  "RR",
+  "SC",
+  "SP",
+  "SE",
+  "TO",
 ];
 
 const COLORS = {
@@ -192,7 +211,9 @@ export default function Dashboard() {
       const alturaPDF = larguraPDF * proporcao;
 
       pdf.setFontSize(22);
-      pdf.text("Relatório - Email Manager", pageWidth / 2, 20, { align: "center" });
+      pdf.text("Relatório - Email Manager", pageWidth / 2, 20, {
+        align: "center",
+      });
 
       if (alturaPDF + 40 < pageHeight) {
         pdf.addImage(imgData, "PNG", 10, 30, larguraPDF, alturaPDF);
@@ -221,8 +242,10 @@ export default function Dashboard() {
 
     let filtrados = [...emails];
 
-    if (chartState !== "all") filtrados = filtrados.filter(e => e.state === chartState);
-    if (chartStatus !== "all") filtrados = filtrados.filter(e => e.status === chartStatus);
+    if (chartState !== "all")
+      filtrados = filtrados.filter((e) => e.state === chartState);
+    if (chartStatus !== "all")
+      filtrados = filtrados.filter((e) => e.status === chartStatus);
 
     // Agrupar por categoria
     const categorias = filtrados.reduce((acc, email) => {
@@ -236,7 +259,9 @@ export default function Dashboard() {
     const data = Object.entries(categorias).map(([name, value]) => ({
       name: name.charAt(0).toUpperCase() + name.slice(1),
       value,
-      color: CATEGORY_COLORS[name as keyof typeof CATEGORY_COLORS] || CATEGORY_COLORS.outros
+      color:
+        CATEGORY_COLORS[name as keyof typeof CATEGORY_COLORS] ||
+        CATEGORY_COLORS.outros,
     }));
 
     // Criar novo gráfico
@@ -265,7 +290,7 @@ export default function Dashboard() {
 
   // ---------- REMOVER GRÁFICO ----------
   const removerGrafico = (id: string) => {
-    const updatedCharts = customCharts.filter(chart => chart.id !== id);
+    const updatedCharts = customCharts.filter((chart) => chart.id !== id);
     setCustomCharts(updatedCharts);
     saveChartsToLocalStorage(updatedCharts);
   };
@@ -273,13 +298,18 @@ export default function Dashboard() {
   // ---------- CÁLCULO DE CARDS ----------
   const calculateCardValue = (filters: Record<string, string>) => {
     return emails.filter((email) => {
-      const emailCategory = email.category?.toString().trim().toLowerCase() || "";
+      const emailCategory =
+        email.category?.toString().trim().toLowerCase() || "";
       const emailState = email.state || "";
 
       const matchesStatus =
-        !filters.status || filters.status === "all" || email.status === filters.status;
+        !filters.status ||
+        filters.status === "all" ||
+        email.status === filters.status;
       const matchesPriority =
-        !filters.priority || filters.priority === "all" || email.priority === filters.priority;
+        !filters.priority ||
+        filters.priority === "all" ||
+        email.priority === filters.priority;
       const matchesCategory =
         !filters.category ||
         filters.category === "all" ||
@@ -289,67 +319,74 @@ export default function Dashboard() {
         filters.state === "all" ||
         emailState === filters.state;
 
-      return matchesStatus && matchesPriority && matchesCategory && matchesState;
+      return (
+        matchesStatus && matchesPriority && matchesCategory && matchesState
+      );
     }).length;
   };
 
-  
+  // ...
 
-// ...
+  useEffect(() => {
+    const loadData = async () => {
+      const result = await fetchDashboardStats();
 
-useEffect(() => {
-  const loadData = async () => {
-    const result = await fetchDashboardStats();
+      if (!result || result.error) {
+        console.error("Erro ao carregar dashboard:", result?.error);
+        return;
+      }
 
-    if (!result || result.error) {
-      console.error("Erro ao carregar dashboard:", result?.error);
-      return;
-    }
+      const data = result.data;
 
-    const data = result.data;
+      // 1 — Atualiza cards principais
+      setStats({
+        total: data.total,
+        pending: data.pendentes,
+        classified: data.classificados,
+        recent: data.emails_ultimos_7_dias,
+        archived: 0, // sua API ainda não retorna isso
+        urgent: 0, // nem isso
+      });
 
-    // 1 — Atualiza cards principais
-    setStats({
-      total: data.total,
-      pending: data.pendentes,
-      classified: data.classificados,
-      recent: data.emails_ultimos_7_dias,
-      archived: 0,   // sua API ainda não retorna isso
-      urgent: 0      // nem isso
-    });
+      // 2 — Atualiza gráficos
+      setChartData([
+        { name: "Pendentes", value: data.pendentes, color: COLORS.pending },
+        {
+          name: "Classificados",
+          value: data.classificados,
+          color: COLORS.classified,
+        },
+      ]);
 
-    // 2 — Atualiza gráficos
-    setChartData([
-      { name: "Pendentes", value: data.pendentes, color: COLORS.pending },
-      { name: "Classificados", value: data.classificados, color: COLORS.classified },
-    ]);
+      // 3 — Tendência (por enquanto usa apenas número bruto)
+      setDailyTrend([
+        {
+          date: "Últimos 7 dias",
+          emails: data.emails_ultimos_7_dias,
+          pending: data.pendentes,
+        },
+      ]);
 
-    // 3 — Tendência (por enquanto usa apenas número bruto)
-    setDailyTrend([
-      { date: "Últimos 7 dias", emails: data.emails_ultimos_7_dias, pending: data.pendentes }
-    ]);
+      // 4 — Top estados
+      const estados = Object.entries(data.emails_por_estado).map(
+        ([estado, count]) => ({ state: estado, count })
+      );
+      setTopStates(estados);
 
-    // 4 — Top estados
-    const estados = Object.entries(data.emails_por_estado).map(
-      ([estado, count]) => ({ state: estado, count })
-    );
-    setTopStates(estados);
+      // 5 — Top remetentes
+      setTopSenders(
+        data.top_remetentes.map((item: any) => ({
+          sender: item.nome,
+          count: item.total_emails,
+        }))
+      );
 
-    // 5 — Top remetentes
-    setTopSenders(
-      data.top_remetentes.map((item: any) => ({
-        sender: item.nome,
-        count: item.total_emails,
-      }))
-    );
+      // 6 — Emails brutos (se precisar depois)
+      setEmails([]); // Sua API ainda não retorna todos os emails
+    };
 
-    // 6 — Emails brutos (se precisar depois)
-    setEmails([]); // Sua API ainda não retorna todos os emails
-  };
-
-  loadData();
-}, []);
-
+    loadData();
+  }, []);
 
   useEffect(() => {
     const savedCards = localStorage.getItem("customDashboardCards");
@@ -402,10 +439,14 @@ useEffect(() => {
   const handleCardClick = (card: any) => {
     if (card.customFilters) {
       const params = new URLSearchParams();
-      if (card.customFilters.status) params.append("status", card.customFilters.status);
-      if (card.customFilters.priority) params.append("priority", card.customFilters.priority);
-      if (card.customFilters.category) params.append("category", card.customFilters.category);
-      if (card.customFilters.state) params.append("state", card.customFilters.state);
+      if (card.customFilters.status)
+        params.append("status", card.customFilters.status);
+      if (card.customFilters.priority)
+        params.append("priority", card.customFilters.priority);
+      if (card.customFilters.category)
+        params.append("category", card.customFilters.category);
+      if (card.customFilters.state)
+        params.append("state", card.customFilters.state);
       navigate(`/history?${params.toString()}`);
       return;
     }
@@ -463,9 +504,14 @@ useEffect(() => {
           <Button onClick={() => setIsDialogOpen(true)} size="sm">
             <Plus className="h-4 w-4 mr-1" /> Adicionar Atalho
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => setIsCustomChartOpen(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsCustomChartOpen(true)}
+          >
             <TrendingUp className="h-4 w-4 mr-1" /> Gráfico Personalizado
           </Button>
+
           <Button variant="outline" size="sm" onClick={gerarPreview}>
             <FileDown className="h-4 w-4 mr-1" /> Pré-visualizar PDF
           </Button>
@@ -486,9 +532,16 @@ useEffect(() => {
             />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
               <div>
-                <label className="text-sm text-muted-foreground">Categoria</label>
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger><SelectValue placeholder="Categoria" /></SelectTrigger>
+                <label className="text-sm text-muted-foreground">
+                  Categoria
+                </label>
+                <Select
+                  value={categoryFilter}
+                  onValueChange={setCategoryFilter}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Categoria" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas</SelectItem>
                     <SelectItem value="marketing">Marketing</SelectItem>
@@ -501,7 +554,9 @@ useEffect(() => {
               <div>
                 <label className="text-sm text-muted-foreground">Estado</label>
                 <Select value={stateFilter} onValueChange={setStateFilter}>
-                  <SelectTrigger><SelectValue placeholder="Estado" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Estado" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
                     {estadosBrasil.map((uf) => (
@@ -533,7 +588,9 @@ useEffect(() => {
           <div className="space-y-4 py-2">
             {/* Título do gráfico */}
             <div>
-              <label className="text-sm text-muted-foreground">Título do Gráfico *</label>
+              <label className="text-sm text-muted-foreground">
+                Título do Gráfico *
+              </label>
               <Input
                 placeholder="Ex: Distribuição por Categoria no PI"
                 value={chartTitle}
@@ -545,11 +602,15 @@ useEffect(() => {
             <div>
               <label className="text-sm text-muted-foreground">Estado</label>
               <Select value={chartState} onValueChange={setChartState}>
-                <SelectTrigger><SelectValue placeholder="Estado" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Estado" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os Estados</SelectItem>
                   {estadosBrasil.map((uf) => (
-                    <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                    <SelectItem key={uf} value={uf}>
+                      {uf}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -559,7 +620,9 @@ useEffect(() => {
             <div>
               <label className="text-sm text-muted-foreground">Status</label>
               <Select value={chartStatus} onValueChange={setChartStatus}>
-                <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os Status</SelectItem>
                   <SelectItem value="pending">Pendentes</SelectItem>
@@ -575,19 +638,26 @@ useEffect(() => {
               <p className="text-sm text-muted-foreground">
                 {chartTitle || "(Sem título)"}
                 {chartState !== "all" && ` - Estado: ${chartState}`}
-                {chartStatus !== "all" && ` - Status: ${chartStatus === 'pending' ? 'Pendentes' : chartStatus === 'classified' ? 'Classificados' : 'Arquivados'}`}
+                {chartStatus !== "all" &&
+                  ` - Status: ${
+                    chartStatus === "pending"
+                      ? "Pendentes"
+                      : chartStatus === "classified"
+                      ? "Classificados"
+                      : "Arquivados"
+                  }`}
               </p>
             </div>
-
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCustomChartOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setIsCustomChartOpen(false)}
+            >
               Cancelar
             </Button>
-            <Button onClick={gerarGraficoPersonalizado}>
-              Criar Gráfico
-            </Button>
+            <Button onClick={gerarGraficoPersonalizado}>Criar Gráfico</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -662,15 +732,22 @@ useEffect(() => {
         {customCharts.length > 0 && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-foreground">Gráficos Personalizados</h2>
+              <h2 className="text-2xl font-bold text-foreground">
+                Gráficos Personalizados
+              </h2>
               <div className="text-sm text-muted-foreground">
-                {customCharts.length} gráfico{customCharts.length !== 1 ? 's' : ''} salvo{customCharts.length !== 1 ? 's' : ''}
+                {customCharts.length} gráfico
+                {customCharts.length !== 1 ? "s" : ""} salvo
+                {customCharts.length !== 1 ? "s" : ""}
               </div>
             </div>
-            
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {customCharts.map((chart) => (
-                <Card key={chart.id} className="hover:shadow-lg transition-shadow relative">
+                <Card
+                  key={chart.id}
+                  className="hover:shadow-lg transition-shadow relative"
+                >
                   <button
                     onClick={() => removerGrafico(chart.id)}
                     className="absolute top-3 right-3 text-muted-foreground hover:text-destructive transition z-10"
@@ -678,14 +755,22 @@ useEffect(() => {
                   >
                     <X className="h-4 w-4" />
                   </button>
-                  
+
                   <CardHeader>
                     <CardTitle className="text-lg">
                       {chart.title}
                       <div className="text-sm text-muted-foreground font-normal mt-1">
                         Criado em: {chart.createdAt}
-                        {chart.filters.state !== "all" && ` • Estado: ${chart.filters.state}`}
-                        {chart.filters.status !== "all" && ` • Status: ${chart.filters.status === 'pending' ? 'Pendentes' : chart.filters.status === 'classified' ? 'Classificados' : 'Arquivados'}`}
+                        {chart.filters.state !== "all" &&
+                          ` • Estado: ${chart.filters.state}`}
+                        {chart.filters.status !== "all" &&
+                          ` • Status: ${
+                            chart.filters.status === "pending"
+                              ? "Pendentes"
+                              : chart.filters.status === "classified"
+                              ? "Classificados"
+                              : "Arquivados"
+                          }`}
                       </div>
                     </CardTitle>
                   </CardHeader>
@@ -700,21 +785,28 @@ useEffect(() => {
                             labelLine={false}
                             outerRadius={80}
                             dataKey="value"
-                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                            label={({ name, percent }) =>
+                              `${name}: ${(percent * 100).toFixed(0)}%`
+                            }
                           >
                             {chart.data.map((entry, i) => (
                               <Cell key={i} fill={entry.color} />
                             ))}
                           </Pie>
-                          <Tooltip 
-                            formatter={(value) => [`${value} e-mails`, 'Quantidade']}
+                          <Tooltip
+                            formatter={(value) => [
+                              `${value} e-mails`,
+                              "Quantidade",
+                            ]}
                           />
                           <Legend />
                         </PieChart>
                       </ResponsiveContainer>
                     ) : (
                       <div className="flex items-center justify-center h-full">
-                        <p className="text-muted-foreground">Nenhum dado encontrado com os filtros aplicados</p>
+                        <p className="text-muted-foreground">
+                          Nenhum dado encontrado com os filtros aplicados
+                        </p>
                       </div>
                     )}
                   </CardContent>
@@ -734,7 +826,7 @@ useEffect(() => {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={chartData}       // ← já contém apenas pendentes e classificados
+                    data={chartData} // ← já contém apenas pendentes e classificados
                     cx="50%"
                     cy="50%"
                     labelLine={false}
@@ -755,11 +847,16 @@ useEffect(() => {
           </Card>
 
           <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader><CardTitle>Tendência Diária (Últimos 7 dias)</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Tendência Diária (Últimos 7 dias)</CardTitle>
+            </CardHeader>
             <CardContent className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={dailyTrend}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="hsl(var(--border))"
+                  />
                   <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
                   <YAxis stroke="hsl(var(--muted-foreground))" />
                   <Tooltip
@@ -793,12 +890,20 @@ useEffect(() => {
         {/* TOP 5 ESTADOS E REMETENTES */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
           <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader><CardTitle>Top 5 Estados por Volume</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Top 5 Estados por Volume</CardTitle>
+            </CardHeader>
             <CardContent className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={topStates}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="state" stroke="hsl(var(--muted-foreground))" />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="hsl(var(--border))"
+                  />
+                  <XAxis
+                    dataKey="state"
+                    stroke="hsl(var(--muted-foreground))"
+                  />
                   <YAxis stroke="hsl(var(--muted-foreground))" />
                   <Tooltip
                     contentStyle={{
@@ -814,21 +919,27 @@ useEffect(() => {
           </Card>
 
           <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader><CardTitle>Top 5 Remetentes</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Top 5 Remetentes</CardTitle>
+            </CardHeader>
             <CardContent className="h-[300px] overflow-y-auto">
               <ul className="w-full space-y-3">
                 {topSenders.map(({ sender, count }, i) => (
                   <li
                     key={i}
                     onClick={() =>
-                      navigate(`/all-emails?sender=${encodeURIComponent(sender)}`)
+                      navigate(
+                        `/all-emails?sender=${encodeURIComponent(sender)}`
+                      )
                     }
                     className="flex justify-between items-center border-b pb-2 text-sm cursor-pointer hover:bg-accent/40 p-2 rounded-md transition"
                   >
                     <span className="font-medium break-words">
                       {i + 1}. {sender}
                     </span>
-                    <span className="text-lg font-bold text-primary">{count}</span>
+                    <span className="text-lg font-bold text-primary">
+                      {count}
+                    </span>
                   </li>
                 ))}
               </ul>
