@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Eye, Search, X } from "lucide-react";
-import { getEmails, type Email } from "@/lib/emailStorage";
+import { fetchEmails } from "@/services/api";     // ⬅️ AGORA VEM DA API
+import { type Email } from "@/lib/emailStorage";
 
 function useQuery() {
   return new URLSearchParams(useLocation().search);
@@ -21,13 +22,34 @@ export default function AllEmails() {
   const [searchTerm, setSearchTerm] = useState("");
   const [senderFilter, setSenderFilter] = useState(urlSender);
 
+  // ⬇️ FETCH REAL DO BACKEND
   useEffect(() => {
-    const all = getEmails();
-    setEmails(all);
-    setSenderFilter(urlSender);
+    async function loadEmails() {
+      try {
+        const result = await fetchEmails();
+        const resultEmails: Email[] = result.data.map((e: any) => ({
+          id: e.id,
+          subject: e.assunto,
+          sender: e.remetente,
+          receiver: e.destinatario,
+          content: e.corpo,
+          date: e.data,
+          status: e.classificado ? "classified" : "pending",
+          state: e.estado,
+          city: e.municipio,
+          category: e.categoria || "",   // ainda não vem da API
+          tags: [],
+        })); 
+        setEmails(resultEmails);
+      } catch (err) {
+        console.error("Erro ao carregar emails:", err);
+      }
+      setSenderFilter(urlSender);
+    }
+    loadEmails();
   }, [location.search]);
 
-  // Agrupa os e-mails por remetente
+  // Agrupar por remetente
   const groupedEmails = emails.reduce((acc, email) => {
     if (senderFilter !== "all" && email.sender !== senderFilter) return acc;
 
@@ -36,6 +58,7 @@ export default function AllEmails() {
         email.sender.toLowerCase().includes(searchTerm.toLowerCase()) ||
         email.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
         email.content.toLowerCase().includes(searchTerm.toLowerCase());
+
       if (!matches) return acc;
     }
 
@@ -51,12 +74,12 @@ export default function AllEmails() {
   };
 
   const getStatusColor = (status: Email["status"]) =>
-    ({
-      pending: "bg-yellow-200 text-yellow-700",
-      classified: "bg-green-200 text-green-700",
-      archived: "bg-gray-200 text-gray-700",
-      urgent: "bg-red-200 text-red-700",
-    }[status] ?? "");
+  ({
+    pending: "bg-yellow-200 text-yellow-700",
+    classified: "bg-green-200 text-green-700",
+    archived: "bg-gray-200 text-gray-700",
+    urgent: "bg-red-200 text-red-700",
+  }[status] ?? "");
 
   const senderKeys = Object.keys(groupedEmails);
 

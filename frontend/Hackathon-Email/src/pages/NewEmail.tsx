@@ -15,6 +15,7 @@ import {
 import { addEmail } from "@/lib/emailStorage";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Send, MapPin, Tag, Calendar, User } from "lucide-react";
+import { createEmail } from "@/services/api";
 
 // Estados brasileiros
 const states = [
@@ -38,8 +39,6 @@ const citiesByState: Record<string, string[]> = {
 // Categorias (as mesmas do emailStorage)
 const categories = ['Trabalho', 'Pessoal', 'Financeiro', 'Suporte', 'Marketing', 'Vendas', 'Compras'];
 
-// Prioridades
-const priorities = ['low', 'medium', 'high', 'urgent'];
 
 // Interface local para o formulário
 interface EmailFormData {
@@ -50,7 +49,6 @@ interface EmailFormData {
   state: string;
   city: string; // Este é o novo campo que precisamos adicionar
   category: string;
-  priority: 'low' | 'medium' | 'high' | 'urgent';
 }
 
 export default function NewEmail() {
@@ -64,8 +62,7 @@ export default function NewEmail() {
     content: "",
     state: "",
     city: "",
-    category: "",
-    priority: "medium"
+    category: ""
   });
 
   const [availableCities, setAvailableCities] = useState<string[]>([]);
@@ -82,61 +79,52 @@ export default function NewEmail() {
     setAvailableCities(cities);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    // Validação dos campos obrigatórios
-    if (!formData.subject || !formData.sender || !formData.content || !formData.state || !formData.city) {
-      toast({
-        title: "Erro",
-        description: "Preencha todos os campos obrigatórios (Assunto, Remetente, Conteúdo, Estado e Município).",
-        variant: "destructive",
-      });
-      return;
-    }
+  if (!formData.subject || !formData.sender || !formData.content || !formData.state || !formData.city) {
+    toast({
+      title: "Erro",
+      description: "Preencha todos os campos obrigatórios (Assunto, Remetente, Conteúdo, Estado e Município).",
+      variant: "destructive",
+    });
+    return;
+  }
 
-    // Cria o novo e-mail já CLASSIFICADO
-    // OBS: O campo 'city' não existe no tipo Email, então vamos adicioná-lo como 'location'
-    // OU vamos precisar atualizar o tipo Email para incluir 'city'
-    const emailData = {
-      subject: formData.subject,
-      sender: formData.sender,
-      recipient: formData.recipient || "cliente@email.com",
-      content: formData.content,
-      state: formData.state,
-      // Vou adicionar 'city' como uma propriedade extra temporária
-      // Em uma aplicação real, você deveria atualizar o tipo Email
-      city: formData.city, // Campo extra que não está no tipo original
-      category: formData.category || undefined,
-      status: "classified" as const,
-      priority: formData.priority,
-      // Vamos usar tags para armazenar a cidade também
-      tags: formData.city ? [formData.city] : [],
-      date: new Date().toISOString(),
+  try {
+    const payload = {
+      assunto: formData.subject,
+      remetente: formData.sender,
+      destinatario: formData.recipient || "cliente@email.com",
+      corpo: formData.content,
+      estado: formData.state,
+      municipio: formData.city,
+      categoria: formData.category || null
     };
 
-    // Como o tipo Email não tem 'city', vou remover essa propriedade antes de chamar addEmail
-    const { city, ...emailForStorage } = emailData;
-    
-    const newEmail = addEmail(emailForStorage);
+    const created = await createEmail(payload);
 
     toast({
-      title: "✅ E-mail cadastrado com sucesso!",
-      description: `E-mail "${formData.subject}" foi classificado e adicionado ao histórico. Localização: ${formData.state} - ${formData.city}`,
-      variant: "default",
+      title: "📨 E-mail criado!",
+      description: `Local: ${formData.state} - ${formData.city}`,
     });
 
-    // Redireciona para a página de detalhes do e-mail
-    navigate(`/email/${newEmail.id}`);
-  };
+    navigate(`/email/${created.data.id}`);
+
+  } catch (err) {
+    toast({
+      title: "Erro ao criar e-mail",
+      description: "O servidor não conseguiu salvar o novo e-mail.",
+      variant: "destructive",
+    });
+  }
+};
+
 
   const handleChange = (field: keyof EmailFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handlePriorityChange = (value: 'low' | 'medium' | 'high' | 'urgent') => {
-    setFormData(prev => ({ ...prev, priority: value }));
-  };
 
   // Calcula se o formulário está completo para habilitar/desabilitar botão
   const isFormComplete = () => {

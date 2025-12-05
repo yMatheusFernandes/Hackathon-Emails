@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Mail, ArrowLeft, Trash2 } from "lucide-react";
-import { getEmailById, deleteEmail, updateEmail, type Email } from "@/lib/emailStorage";
+import { deleteEmailAPI } from "@/services/api";
+
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -18,84 +19,131 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+// AGORA usa API real
+import { fetchEmailById } from "@/services/api";
+
+import type { Email } from "@/lib/emailStorage";
+
 export default function EmailDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+
   const [email, setEmail] = useState<Email | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (id) {
-      const foundEmail = getEmailById(id);
-      if (foundEmail) {
-        setEmail(foundEmail);
-      } else {
+    if (!id) return;
+
+    const loadEmail = async () => {
+      try {
+        setLoading(true);
+
+        const response = await fetchEmailById(id);
+
+        if (!response) {
+          toast({
+            title: "E-mail não encontrado",
+            description: "Esse e-mail não existe no servidor.",
+            variant: "destructive",
+          });
+          navigate("/history");
+          return;
+        }
+
+        const e = response;
+
+        // Normalização para o formato Email
+        const normalized: Email = {
+          id: e.id,
+          subject: e.assunto ?? e.subject ?? "",
+          sender: e.remetente ?? e.sender ?? "",
+          recipient: e.destinatario ?? e.receiver ?? "",
+          content: e.corpo ?? e.content ?? "",
+          date: e.data ?? e.date ?? new Date().toISOString(),
+          status:
+            e.classificado === true || e.status === "classified"
+              ? "classified"
+              : "pending",
+          state: e.estado ?? null,
+          city: e.municipio ?? null,
+          category: e.categoria ?? "",
+          tags: e.tags ?? []
+        };
+
+        setEmail(normalized);
+      } catch (error) {
         toast({
-          title: "E-mail não encontrado",
-          description: "O e-mail solicitado não existe.",
+          title: "Erro ao carregar",
+          description: "Não foi possível carregar o e-mail.",
           variant: "destructive",
         });
         navigate("/history");
+      } finally {
+        setLoading(false);
       }
-    }
+    };
+
+    loadEmail();
   }, [id, navigate, toast]);
 
-  const handleDelete = () => {
-    if (!id) return;
+  // 🔥 Removemos delete e reclassify locais (não existem na API)
+const handleDelete = async () => {
+  if (!id) return;
 
-    const success = deleteEmail(id);
-    if (success) {
-      toast({
-        title: "E-mail excluído",
-        description: "O e-mail foi removido do sistema.",
-      });
-      navigate("/history");
-    }
-  };
+  try {
+    const result = await deleteEmailAPI(id);
 
-  const handleReclassify = () => {
-    if (!id || !email) return;
-
-    const updated = updateEmail(id, {
-      subject: email.subject,
-      sender: email.sender,
-      recipient: email.recipient,
-      content: email.content,
-      status: "pending",
-      priority: "medium",
-      category: undefined,
+    toast({
+      title: "E-mail excluído",
+      description: "O e-mail foi removido do sistema.",
+      variant: "default",
     });
 
-    if (updated) {
-      setEmail(updated);
-      toast({
-        title: "Classificação removida",
-        description: "O e-mail voltou para Pendentes para ser reclassificado.",
-      });
-      navigate("/pending");
-    }
+    navigate("/all-emails");
+
+  } catch (err) {
+    toast({
+      title: "Erro ao excluir",
+      description: "Não foi possível excluir o e-mail no servidor.",
+      variant: "destructive",
+    });
+  }
+};
+
+
+  const handleReclassify = () => {
+    toast({
+      title: "⚠ Função desativada",
+      description: "A reclassificação deve ser feita na página de Pendentes.",
+      variant: "default",
+    });
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-muted-foreground">Carregando e-mail...</p>
+      </div>
+    );
+  }
 
   if (!email) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <p className="text-muted-foreground">Carregando...</p>
+        <p className="text-muted-foreground">E-mail não encontrado.</p>
       </div>
     );
   }
 
   const statusLabels = {
-    pending: 'Pendente',
-    classified: 'Classificado',
-    archived: 'Arquivado',
+    pending: "Pendente",
+    classified: "Classificado",
+    archived: "Arquivado",
   };
 
-  const priorityLabels = {
-    low: 'Baixa',
-    medium: 'Média',
-    high: 'Alta',
-    urgent: 'Urgente',
-  };
+
+
 
   return (
     <div className="max-w-4xl animate-fade-in">
@@ -180,7 +228,6 @@ export default function EmailDetail() {
 
           <div className="flex flex-wrap gap-2">
             <Badge variant="outline">{statusLabels[email.status]}</Badge>
-            <Badge variant="outline">{priorityLabels[email.priority]}</Badge>
             {email.category && <Badge variant="outline">{email.category}</Badge>}
             {email.state && <Badge variant="outline">{email.state}</Badge>}
           </div>

@@ -7,6 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { getEmails, updateEmail, type Email } from "@/lib/emailStorage";
 import { Mail, Search, Filter, Eye, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { fetchEmailsPending } from "@/services/api";
+import { classifyEmail } from "@/services/api";
+
 
 const estadosBrasil = [
   "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA",
@@ -74,13 +77,34 @@ export default function Pending() {
     filterEmails();
   }, [emails, searchTerm]);
 
-  const loadEmails = () => {
-    const pending = getEmails().filter(e => e.status === "pending");
-    setEmails(pending);
-    
+// 🔥 Agora a função pega da API REAL, não mais dos fakes
+const loadEmails = async () => {
+  try {
+     const response = await fetchEmailsPending();
+
+    // Agora usamos response.data que contém a lista real
+    const apiEmails = response.data;
+
+    // Normalização (a API usa nomes diferentes dos usados no front)
+    const pendingEmails: Email[] = apiEmails.map((e: any) => ({
+      id: e.id,
+      subject: e.assunto,
+      sender: e.remetente,
+      receiver: e.destinatario,
+      content: e.corpo,
+      date: e.data,
+      status: e.classificado ? "classified" : "pending",
+      state: e.estado,
+      city: e.municipio,
+      category: e.categoria || "",   // ainda não vem da API
+      tags: [],
+    }));
+
+    setEmails(pendingEmails);
+
     // Inicializar seleções para cada email
     const initialSelections: EmailSelections = {};
-    pending.forEach(email => {
+    pendingEmails.forEach(email => {
       initialSelections[email.id] = {
         category: email.category || "",
         state: email.state || "",
@@ -88,7 +112,16 @@ export default function Pending() {
       };
     });
     setSelections(initialSelections);
-  };
+
+  } catch (err) {
+    console.error("Erro ao carregar e-mails pendentes", err);
+    toast({
+      title: "Erro ao carregar e-mails",
+      description: "Não foi possível carregar os e-mails pendentes.",
+      variant: "destructive",
+    });
+  }
+};
 
   const filterEmails = () => {
     let list = [...emails];
@@ -134,51 +167,61 @@ export default function Pending() {
     return availableCities[emailId] || [];
   };
 
-  const handleClassify = (emailId: string) => {
-    const emailSelections = selections[emailId];
-    const email = emails.find(e => e.id === emailId);
-    
-    if (!emailSelections || !email) {
-      toast({
-        title: "Erro!",
-        description: "E-mail não encontrado.",
-        variant: "destructive",
-      });
-      return;
-    }
+  const handleClassify = async (emailId: string) => {
+  const emailSelections = selections[emailId];
+  const email = emails.find(e => e.id === emailId);
 
-    if (!emailSelections.category || !emailSelections.state || !emailSelections.city) {
-      toast({
-        title: "Preencha todos os campos!",
-        description: "Selecione Categoria, Estado e Município antes de finalizar.",
-        variant: "destructive",
-      });
-      return;
-    }
+  if (!emailSelections || !email) {
+    toast({
+      title: "Erro!",
+      description: "E-mail não encontrado.",
+      variant: "destructive",
+    });
+    return;
+  }
 
-    // Atualizar o email com os dados selecionados
-    const updatedEmail = updateEmail(emailId, {
-      status: "classified",
-      category: emailSelections.category,
-      state: emailSelections.state,
-      tags: emailSelections.city ? [...(email.tags || []), `municipio:${emailSelections.city}`] : email.tags
+  if (!emailSelections.category || !emailSelections.state || !emailSelections.city) {
+    toast({
+      title: "Preencha todos os campos!",
+      description: "Selecione Categoria, Estado e Município antes de finalizar.",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  try {
+    // 🔥 Envia os dados reais para a API Flask
+    await classifyEmail(
+      emailId,
+      emailSelections.state,
+      emailSelections.city,
+      emailSelections.category
+    );
+
+    toast({
+      title: "E-mail classificado!",
+      description: `${emailSelections.category} | ${emailSelections.state} - ${emailSelections.city}`,
     });
 
-    if (updatedEmail) {
-      toast({
-        title: "E-mail classificado!",
-        description: `${emailSelections.category} | ${emailSelections.state} - ${emailSelections.city}`,
-      });
-      
-      // Remover seleções deste email
-      setSelections(prev => {
-        const { [emailId]: _, ...rest } = prev;
-        return rest;
-      });
-      
-      loadEmails();
-    }
-  };
+    // Limpa seleções
+    setSelections(prev => {
+      const { [emailId]: _, ...rest } = prev;
+      return rest;
+    });
+
+    // Recarrega pendentes
+    await loadEmails();
+
+  } catch (error) {
+    console.error(error);
+    toast({
+      title: "Erro ao classificar!",
+      description: "Não foi possível enviar os dados para o servidor.",
+      variant: "destructive",
+    });
+  }
+};
+
 
   const isEmailReadyToClassify = (emailId: string) => {
     const selection = selections[emailId];

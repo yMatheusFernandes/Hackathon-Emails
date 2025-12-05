@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { fetchDashboardStats } from "@/services/api";
 import { useNavigate } from "react-router-dom";
 import {
   Card,
@@ -292,61 +293,63 @@ export default function Dashboard() {
     }).length;
   };
 
-  useEffect(() => {
-    const emailStats = getEmailStats();
-    const allEmails = getEmails();
-    setStats(emailStats);
-    setEmails(allEmails);
+  
 
-    const statusData = [
-      { name: "Pendentes", value: emailStats.pending, color: COLORS.pending },
-      { name: "Classificados", value: emailStats.classified, color: COLORS.classified },
-    ];
-    setChartData(statusData);
+// ...
 
-    const last7Days = Array.from({ length: 7 }, (_, i) => {
-      const date = new Date();
-      date.setDate(date.getDate() - (6 - i));
-      return date;
+useEffect(() => {
+  const loadData = async () => {
+    const result = await fetchDashboardStats();
+
+    if (!result || result.error) {
+      console.error("Erro ao carregar dashboard:", result?.error);
+      return;
+    }
+
+    const data = result.data;
+
+    // 1 — Atualiza cards principais
+    setStats({
+      total: data.total,
+      pending: data.pendentes,
+      classified: data.classificados,
+      recent: data.emails_ultimos_7_dias,
+      archived: 0,   // sua API ainda não retorna isso
+      urgent: 0      // nem isso
     });
 
-    const trendData = last7Days.map((date) => {
-      const dateStr = date.toISOString().split("T")[0];
-      const dayEmails = allEmails.filter((e) => e.date.startsWith(dateStr));
-      return {
-        date: date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }),
-        emails: dayEmails.length,
-        pending: dayEmails.filter((e) => e.status === "pending").length,
-      };
-    });
-    setDailyTrend(trendData);
+    // 2 — Atualiza gráficos
+    setChartData([
+      { name: "Pendentes", value: data.pendentes, color: COLORS.pending },
+      { name: "Classificados", value: data.classificados, color: COLORS.classified },
+    ]);
 
-    const emailByState = allEmails.reduce((acc, email) => {
-      const state = email.state || "Não informado";
-      if (!acc[state]) acc[state] = 0;
-      acc[state]++;
-      return acc;
-    }, {} as Record<string, number>);
+    // 3 — Tendência (por enquanto usa apenas número bruto)
+    setDailyTrend([
+      { date: "Últimos 7 dias", emails: data.emails_ultimos_7_dias, pending: data.pendentes }
+    ]);
 
-    const top5States = Object.entries(emailByState)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([state, count]) => ({ state, count }));
-    setTopStates(top5States);
+    // 4 — Top estados
+    const estados = Object.entries(data.emails_por_estado).map(
+      ([estado, count]) => ({ state: estado, count })
+    );
+    setTopStates(estados);
 
-    const emailBySender = allEmails.reduce((acc, email) => {
-      const sender = email.sender || "Desconhecido";
-      if (!acc[sender]) acc[sender] = 0;
-      acc[sender]++;
-      return acc;
-    }, {} as Record<string, number>);
+    // 5 — Top remetentes
+    setTopSenders(
+      data.top_remetentes.map((item: any) => ({
+        sender: item.nome,
+        count: item.total_emails,
+      }))
+    );
 
-    const top5Senders = Object.entries(emailBySender)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([sender, count]) => ({ sender, count }));
-    setTopSenders(top5Senders);
-  }, []);
+    // 6 — Emails brutos (se precisar depois)
+    setEmails([]); // Sua API ainda não retorna todos os emails
+  };
+
+  loadData();
+}, []);
+
 
   useEffect(() => {
     const savedCards = localStorage.getItem("customDashboardCards");

@@ -5,31 +5,51 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getEmails, type Email } from "@/lib/emailStorage";
 import { Search, Filter, Eye, X } from "lucide-react";
+import { type Email } from "@/lib/emailStorage";
+import { fetchEmails } from "@/services/api";
+import { useToast } from "@/components/ui/use-toast";
 
 function useQuery() {
   return new URLSearchParams(useLocation().search);
 }
 
 const estadosBrasil = [
-  "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA",
-  "MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN",
-  "RS","RO","RR","SC","SP","SE","TO"
+  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
+  "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
+  "RS", "RO", "RR", "SC", "SP", "SE", "TO"
 ];
+
+// 👉 TYPE usado para normalizar os dados da API
+type EmailFromAPI = {
+  id: string;
+  assunto: string;
+  remetente: string;
+  destinatario: string;
+  corpo: string;
+  data: string;
+  estado: string | null;
+  municipio: string | null;
+  classificado: boolean;
+  categoria: string | null;
+};
 
 export default function History() {
   const navigate = useNavigate();
-  const query = useQuery();
   const location = useLocation();
+  const { toast } = useToast();
 
+  const query = useQuery();
+
+  // filtros vindos da URL
   const urlStatus = query.get("status") ?? "all";
   const urlCategory = query.get("category") ?? "all";
   const urlSearch = query.get("search") ?? "";
   const urlState = query.get("state") ?? "all";
   const urlSort = query.get("sort") ?? "newest";
-  const urlEmail = query.get("email") ?? "all";     // <---- NOVO FILTRO
+  const urlEmail = query.get("email") ?? "all";
 
+  // estados reativos
   const [emails, setEmails] = useState<Email[]>([]);
   const [filteredEmails, setFilteredEmails] = useState<Email[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -37,24 +57,78 @@ export default function History() {
   const [categoryFilter, setCategoryFilter] = useState(urlCategory);
   const [stateFilter, setStateFilter] = useState(urlState);
   const [sortOption, setSortOption] = useState(urlSort);
-  const [emailFilter, setEmailFilter] = useState(urlEmail);  // <---- NOVO
+  const [emailFilter, setEmailFilter] = useState(urlEmail);
 
+  // ============================
+  //        CARREGAR DA API
+  // ============================
   useEffect(() => {
-    const all = getEmails();
-    setEmails(all);
-    setSearchTerm(urlSearch);
-    setStatusFilter(urlStatus);
-    setCategoryFilter(urlCategory);
-    setStateFilter(urlState);
-    setSortOption(urlSort);
-    setEmailFilter(urlEmail);  // <---- NOVO
+    const load = async () => {
+      try {
+        // Sincroniza com a URL
+        setSearchTerm(urlSearch);
+        setStatusFilter(urlStatus);
+        setCategoryFilter(urlCategory);
+        setStateFilter(urlState);
+        setSortOption(urlSort);
+        setEmailFilter(urlEmail);
+
+        // Chama a API
+        const response = await fetchEmails();
+
+        // Garantir formato correto
+        let apiEmails: any[] = [];
+
+        if (Array.isArray(response)) {
+          apiEmails = response;
+        } else if (Array.isArray(response.data)) {
+          apiEmails = response.data;
+        } else {
+          apiEmails = [];
+          console.warn("Formato inesperado de fetchEmails:", response);
+        }
+
+        // Normalizar
+        const normalized: Email[] = apiEmails.map((e: EmailFromAPI) => ({
+          id: e.id,
+          subject: e.assunto || "",
+          sender: e.remetente || "",
+          recipient: e.destinatario || "",
+          content: e.corpo || "",
+          date: e.data || "",
+          status: e.classificado ? "classified" : "pending",
+          state: e.estado || null,
+          city: e.municipio || null,
+          category: e.categoria || "",  // ADICIONADO
+          priority: "normal",   // o type Email exige isso
+          tags: [],
+        }));
+
+        console.log("Emails normalizados:", normalized);
+
+        setEmails(normalized);
+
+      } catch (err) {
+        console.error("Erro ao carregar emails (History):", err);
+        toast({
+          title: "Erro ao carregar e-mails",
+          description: "Não foi possível carregar os e-mails da API.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    load();
   }, [location.search]);
 
-  // lista remetentes únicos
+
+  // ============================
+  //         FILTRAGEM
+  // ============================
   const senders = Array.from(new Set(emails.map(e => e.sender)));
 
   useEffect(() => {
-    let filtered = emails.filter(e => e.status !== "pending");
+    let filtered = emails.filter(e => e.status !== "pending"); // histórico → só classificados
 
     if (searchTerm) {
       filtered = filtered.filter(e =>
@@ -65,10 +139,13 @@ export default function History() {
     }
 
     if (statusFilter !== "all") filtered = filtered.filter(e => e.status === statusFilter);
-    if (categoryFilter !== "all") filtered = filtered.filter(e => e.category?.toLowerCase() === categoryFilter.toLowerCase());
+    if (categoryFilter !== "all") filtered = filtered.filter(e =>
+      e.category?.toLowerCase() === categoryFilter.toLowerCase()
+    );
     if (stateFilter !== "all") filtered = filtered.filter(e => e.state === stateFilter);
-    if (emailFilter !== "all") filtered = filtered.filter(e => e.sender === emailFilter); // <---- AQUI O FILTRO FUNCIONA
+    if (emailFilter !== "all") filtered = filtered.filter(e => e.sender === emailFilter);
 
+    // Ordenação
     filtered.sort((a, b) =>
       sortOption === "newest"
         ? new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -78,6 +155,8 @@ export default function History() {
     setFilteredEmails(filtered);
   }, [emails, searchTerm, statusFilter, categoryFilter, stateFilter, sortOption, emailFilter]);
 
+
+  // Resetar filtros
   const clearFilters = () => {
     setSearchTerm("");
     setStatusFilter("all");
@@ -88,13 +167,16 @@ export default function History() {
     navigate("/history");
   };
 
-  const getStatusColor = (status: Email['status']) => ({
-    classified: 'bg-green-600/20 text-green-700',
-    archived: 'bg-muted text-muted-foreground',
+  const getStatusColor = (status: Email["status"]) => ({
+    classified: "bg-green-600/20 text-green-700",
+    archived: "bg-muted text-muted-foreground",
   }[status] ?? "");
 
-  const categoriesBase = ["Trabalho", "Pessoal", "Financeiro", "Suporte", "Marketing"];
-  const categories = Array.from(new Set([...categoriesBase, ...emails.map(e => e.category).filter(Boolean)]));
+  const categoriesBase = ["Trabalho", "Pessoal", "Financeiro", "Suporte", "Marketing", "Compras"];
+  const categories = Array.from(new Set([
+    ...categoriesBase,
+    ...emails.map(e => e.category).filter(Boolean),
+  ]));
 
   const hasActiveFilters =
     statusFilter !== "all" ||
@@ -103,6 +185,8 @@ export default function History() {
     searchTerm !== "" ||
     emailFilter !== "all" ||
     sortOption !== "newest";
+
+
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -114,7 +198,7 @@ export default function History() {
 
         {hasActiveFilters && (
           <Button variant="outline" size="sm" onClick={clearFilters}>
-            <X className="h-4 w-4 mr-1"/> Limpar filtros
+            <X className="h-4 w-4 mr-1" /> Limpar filtros
           </Button>
         )}
       </div>
@@ -128,7 +212,7 @@ export default function History() {
 
         <CardContent className="space-y-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar por assunto, remetente ou conteúdo..."
               value={searchTerm}
@@ -138,32 +222,32 @@ export default function History() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
-            
-            {/* ----- NOVO SELECT DE E-MAIL ----- */}
-            <Select 
-  value={emailFilter} 
-  onValueChange={(v) => {
-    setEmailFilter(v);
-    navigate(`/history?email=${v}`); // atualiza a URL para o filtro funcionar
-  }}
->
-  <SelectTrigger>
-    <SelectValue placeholder="Remetente" />
-  </SelectTrigger>
 
-  <SelectContent>
-    <SelectItem value="all">Todos</SelectItem>
-    {senders.map(s => (
-      <SelectItem key={s} value={s}>
-        {s}
-      </SelectItem>
-    ))}
-  </SelectContent>
-</Select>
+            {/* ----- NOVO SELECT DE E-MAIL ----- */}
+            <Select
+              value={emailFilter}
+              onValueChange={(v) => {
+                setEmailFilter(v);
+                navigate(`/history?email=${v}`); // atualiza a URL para o filtro funcionar
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Remetente" />
+              </SelectTrigger>
+
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {senders.map(s => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
 
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger><SelectValue placeholder="Categoria"/></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Categoria" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas</SelectItem>
                 {categories.map(c => <SelectItem key={c} value={c.toLowerCase()}>{c}</SelectItem>)}
@@ -171,7 +255,7 @@ export default function History() {
             </Select>
 
             <Select value={stateFilter} onValueChange={setStateFilter}>
-              <SelectTrigger><SelectValue placeholder="Estado"/></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Estado" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos os estados</SelectItem>
                 {estadosBrasil.map(uf => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
@@ -179,7 +263,7 @@ export default function History() {
             </Select>
 
             <Select value={sortOption} onValueChange={setSortOption}>
-              <SelectTrigger><SelectValue/></SelectTrigger>
+              <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="newest">Mais recentes primeiro</SelectItem>
                 <SelectItem value="oldest">Mais antigos primeiro</SelectItem>
@@ -213,7 +297,7 @@ export default function History() {
                 </p>
 
                 <Button size="sm" variant="outline" onClick={() => navigate(`/email/${email.id}`)}>
-                  <Eye className="h-4 w-4 mr-1"/> Ver
+                  <Eye className="h-4 w-4 mr-1" /> Ver
                 </Button>
               </CardContent>
             </Card>
