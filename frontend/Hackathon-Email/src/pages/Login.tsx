@@ -33,17 +33,30 @@ export default function Login() {
       return;
     }
 
+    // Credenciais fixas do gerente
+    const GERENTE_LOGIN = "gerente@storkmail.com";
+    const GERENTE_SENHA = "admin123";
+
+    // Validação
+    if (name !== GERENTE_LOGIN || password !== GERENTE_SENHA) {
+      toast({
+        title: "Acesso negado",
+        description: "Credenciais inválidas.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
-    // Simula autenticação - pronto para integração com backend
     setTimeout(() => {
       setIsLoading(false);
       toast({
         title: "Login realizado",
-        description: `Bem-vindo, ${name}!`,
+        description: `Bem-vindo, gerente!`,
       });
       navigate("/Dashboard");
-    }, 1000);
+    }, 800);
   };
 
   return (
@@ -71,13 +84,13 @@ export default function Login() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Nome do Funcionário</Label>
+                <Label htmlFor="name">Email</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="name"
                     type="text"
-                    placeholder="Digite seu nome"
+                    placeholder="Digite seu email"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="pl-10"
