@@ -2,7 +2,9 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from services.imap_service import ImapService
 from services.email_service import EmailService
+from services.funcionario_service import FuncionarioService
 from repositories.email_repository import EmailRepository
+from repositories.funcionario_repository import FuncionarioRepository
 from services.firestore_client import get_firestore_client
 import os
 
@@ -17,13 +19,17 @@ def sync_emails_job():
         
         novos = imap.fetch_new_emails()
         
-        # Salva
+        # Setup services
         db = get_firestore_client()
-        repo = EmailRepository(db)
-        service = EmailService(repo)
+        email_repo = EmailRepository(db)
+        func_repo = FuncionarioRepository(db)
         
+        func_service = FuncionarioService(func_repo)
+        email_service = EmailService(email_repo, func_service)  # Passa funcionario_service
+        
+        # Salva emails e registra funcionários
         for email_obj in novos:
-            service.create_email(
+            email_service.create_email(
                 remetente=email_obj.remetente,
                 destinatario=email_obj.destinatario,
                 assunto=email_obj.assunto,
@@ -39,6 +45,6 @@ def sync_emails_job():
 def start_scheduler():
     """Inicia scheduler"""
     scheduler = BackgroundScheduler()
-    scheduler.add_job(sync_emails_job, 'interval', minutes=0.1)
+    scheduler.add_job(sync_emails_job, 'interval', seconds=6, max_instances=3)
     scheduler.start()
-    print("🚀 Scheduler iniciado - sync a cada 1 minuto")
+    print("🚀 Scheduler iniciado - sync a cada 6 segundos")

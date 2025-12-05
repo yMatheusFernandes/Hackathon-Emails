@@ -14,6 +14,7 @@ class Email:
     id: Optional[str] = None
     estado: Optional[str] = None
     municipio: Optional[str] = None
+    categoria: Optional[str] = None
     classificado: bool = False
     
     def to_dict(self):
@@ -27,6 +28,7 @@ class Email:
             'data': self.data,
             'estado': self.estado,
             'municipio': self.municipio,
+            'categoria': self.categoria,
             'classificado': self.classificado
         }
     
@@ -42,5 +44,6 @@ class Email:
             data=data['data'],
             estado=data.get('estado'),
             municipio=data.get('municipio'),
+            categoria=data.get('categoria'),
             classificado=data.get('classificado', False)
         )

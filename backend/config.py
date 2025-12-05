@@ -19,7 +19,7 @@ class Config:
     EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
     
     # Scheduler
-    SYNC_INTERVAL_MINUTES = int(os.getenv('SYNC_INTERVAL_MINUTES', '1'))
+    #SYNC_INTERVAL_MINUTES = int(os.getenv('SYNC_INTERVAL_MINUTES', '1'))
     
     # CORS
     CORS_ORIGINS = os.getenv('CORS_ORIGINS', '*')

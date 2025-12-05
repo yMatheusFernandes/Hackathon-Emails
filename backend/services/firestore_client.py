@@ -39,38 +39,3 @@ def get_firestore_client() -> Client:
             raise
     
     return _firestore_client
-
-
-def test_connection():
-    """
-    Testa conexão com Firestore
-    """
-    try:
-        db = get_firestore_client()
-        
-        # Tenta criar um documento de teste
-        test_ref = db.collection('_test').document('connection_test')
-        test_ref.set({'timestamp': firestore.SERVER_TIMESTAMP})
-        
-        # Lê o documento
-        doc = test_ref.get()
-        
-        if doc.exists:
-            print("✅ Conexão testada com sucesso!")
-            print(f"   Dados: {doc.to_dict()}")
-            
-            # Remove documento de teste
-            test_ref.delete()
-            return True
-        else:
-            print("❌ Documento de teste não encontrado")
-            return False
-            
-    except Exception as e:
-        print(f"❌ Erro no teste de conexão: {e}")
-        return False
-
-
-if __name__ == '__main__':
-    # Testa conexão ao executar este arquivo diretamente
-    test_connection()

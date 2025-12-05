@@ -80,3 +80,8 @@ class EmailRepository:
                 estados[estado] = estados.get(estado, 0) + 1
         
         return estados
+    
+    # def ja_foi_processado(self, uid: str) -> bool:
+    #     doc_ref = self.collection.document(uid)
+    #     print("...........................\n",doc_ref.get().exists)
+    #     return doc_ref.get().exists

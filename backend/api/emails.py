@@ -25,6 +25,19 @@ def list_emails():
         }), 200
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+    
+@emails_bp.route('/<email_id>', methods=['GET'])
+def email_by_id(email_id):
+    """Lista todos emails"""
+    try:
+        service = get_service()
+        email = service.get_emails_by_id(email_id)
+        return jsonify({
+            'success': True,
+            'data': email.to_dict()
+        }), 200
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @emails_bp.route('/pending', methods=['GET'])
 def list_pending():
@@ -39,7 +52,7 @@ def list_pending():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@emails_bp.route('/', methods=['POST'])
+@emails_bp.route('/create', methods=['POST'])
 def create_email():
     """Cadastro manual"""
     try:
@@ -53,7 +66,8 @@ def create_email():
             corpo=data['corpo'],
             data=datetime.now(),
             estado=data.get('estado'),
-            municipio=data.get('municipio')
+            municipio=data.get('municipio'),
+            categoria=data.get('categoria')
         )
         
         return jsonify({
@@ -68,17 +82,29 @@ def classify_email(email_id):
     """Classificar email"""
     try:
         data = request.get_json()
+        print(data)
         service = get_service()
         
         email = service.classify_email(
             email_id=email_id,
             estado=data['estado'],
-            municipio=data['municipio']
+            municipio=data['municipio'], 
+            categoria=data['categoria']
         )
         
         return jsonify({
             'success': True,
             'data': email.to_dict()
         }), 200
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    
+@emails_bp.route('/<email_id>', methods=['DELETE'])
+def delete_email(email_id):
+    """Excluir email"""
+    try:
+        service = get_service()
+        service.delete_email(email_id)
+        return jsonify({'success': True}), 200 
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
