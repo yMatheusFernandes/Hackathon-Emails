@@ -1,6 +1,15 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { LayoutDashboard, Mail, Plus, History, Menu, Inbox, LogOut } from "lucide-react";
+import {
+  LayoutDashboard,
+  Mail,
+  Plus,
+  History,
+  Menu,
+  Inbox,
+  Users,
+  LogOut,
+} from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
   Tooltip,
@@ -80,6 +89,18 @@ export function AppSidebar() {
           </nav>
         </div>
 
+        {/* Botão personalizado na parte inferior */}
+        <div className="p-4 border-t border-[#1B263B]">
+          <Button
+            variant="outline"
+            className="w-full text-black font-medium"
+            onClick={() => navigate("/funcionarios")}
+          >
+            <Users className="mr-2 h-4 w-4" />
+            {open && "Acessar funcionários"}
+          </Button>
+        </div>
+
         {/* Botão de sair */}
         <div className="p-4 border-t border-[#1B263B]">
           <button
@@ -93,7 +114,9 @@ export function AppSidebar() {
       </div>
 
       {/* Espaço reservado para o layout principal */}
-      <div className={`${open ? "w-64" : "w-20"} transition-all duration-300`} />
+      <div
+        className={`${open ? "w-64" : "w-20"} transition-all duration-300`}
+      />
     </TooltipProvider>
   );
 }

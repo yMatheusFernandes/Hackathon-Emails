@@ -120,16 +120,7 @@ export default function Login() {
               </Button>
             </form>
 
-            <div className="mt-6 pt-6 border-t border-border">
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => navigate("/funcionarios")}
-              >
-                <Users className="mr-2 h-4 w-4" />
-                Acessar lista de funcionários cadastrados
-              </Button>
-            </div>
+            
           </CardContent>
         </Card>
       </div>
