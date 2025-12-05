@@ -5,8 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Eye, Search, X, Filter, Mail } from "lucide-react";
-import { fetchEmails } from "@/services/api";
-import { type Email } from "@/lib/emailStorage";
+import { 
+  getEmails, 
+  type Email,
+  BRAZILIAN_STATES,
+  getStateName,
+  getEmailsByState
+} from "@/lib/emailStorage";
 import {
   Select,
   SelectContent,
@@ -14,12 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-// Interface estendida para incluir propriedades que vêm da API
-interface EmailFromAPI extends Omit<Email, 'receiver' | 'city'> {
-  receiver?: string;
-  city?: string;
-}
 
 function useQuery() {
   return new URLSearchParams(useLocation().search);
@@ -31,46 +30,26 @@ export default function AllEmails() {
   const location = useLocation();
 
   const urlSender = query.get("sender") ?? "all";
-  const [emails, setEmails] = useState<EmailFromAPI[]>([]);
+  const [emails, setEmails] = useState<Email[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [senderFilter, setSenderFilter] = useState(urlSender);
   const [statusFilter, setStatusFilter] = useState("all");
   const [stateFilter, setStateFilter] = useState("all");
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
-  // Estados do Brasil
-  const estadosBrasil = [
-    "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", 
-    "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", 
-    "RS", "RO", "RR", "SC", "SP", "SE", "TO"
-  ];
-
-  // Fetch emails do backend
+  // Carregar emails do localStorage
   useEffect(() => {
-    async function loadEmails() {
+    const loadEmails = () => {
       try {
-        const result = await fetchEmails();
-        const resultEmails: EmailFromAPI[] = result.data.map((e: any) => ({
-          id: e.id,
-          subject: e.assunto,
-          sender: e.remetente,
-          receiver: e.destinatario || "", // Pode ser undefined
-          content: e.corpo,
-          date: e.data,
-          status: e.classificado ? "classified" : "pending",
-          state: e.estado || "",
-          city: e.municipio || "", // Pode ser undefined
-          category: e.categoria || "",
-          tags: [],
-        }));
-        setEmails(resultEmails);
+        const allEmails = getEmails();
+        setEmails(allEmails);
       } catch (err) {
         console.error("Erro ao carregar emails:", err);
       }
       setSenderFilter(urlSender);
-    }
+    };
     loadEmails();
-  }, [location.search]);
+  }, [location.search, urlSender]);
 
   // Filtrar emails
   const filteredEmails = emails.filter((email) => {
@@ -90,7 +69,7 @@ export default function AllEmails() {
         email.sender.toLowerCase().includes(searchLower) ||
         email.subject.toLowerCase().includes(searchLower) ||
         email.content.toLowerCase().includes(searchLower) ||
-        (email.receiver && email.receiver.toLowerCase().includes(searchLower)) ||
+        (email.recipient && email.recipient.toLowerCase().includes(searchLower)) ||
         (email.city && email.city.toLowerCase().includes(searchLower)) ||
         false
       );
@@ -104,7 +83,7 @@ export default function AllEmails() {
     if (!acc[email.sender]) acc[email.sender] = [];
     acc[email.sender].push(email);
     return acc;
-  }, {} as Record<string, EmailFromAPI[]>);
+  }, {} as Record<string, Email[]>);
 
   const clearFilters = () => {
     setSearchTerm("");
@@ -119,7 +98,6 @@ export default function AllEmails() {
       pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
       classified: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
       archived: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",
-      urgent: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
     }[status] ?? "");
 
   const getStatusText = (status: Email["status"]) =>
@@ -127,8 +105,15 @@ export default function AllEmails() {
       pending: "Pendente",
       classified: "Classificado",
       archived: "Arquivado",
-      urgent: "Urgente",
     }[status] ?? status);
+
+  const getPriorityText = (priority: Email["priority"]) =>
+    ({
+      low: "Baixa",
+      medium: "Média",
+      high: "Alta",
+      urgent: "Urgente",
+    }[priority] ?? priority);
 
   const senderKeys = Object.keys(groupedEmails);
   const totalEmails = filteredEmails.length;
@@ -216,7 +201,6 @@ export default function AllEmails() {
                   <SelectItem value="pending">Pendentes</SelectItem>
                   <SelectItem value="classified">Classificados</SelectItem>
                   <SelectItem value="archived">Arquivados</SelectItem>
-                  <SelectItem value="urgent">Urgentes</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -229,8 +213,10 @@ export default function AllEmails() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os estados</SelectItem>
-                  {estadosBrasil.map((uf) => (
-                    <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                  {BRAZILIAN_STATES.map((state) => (
+                    <SelectItem key={state.code} value={state.code}>
+                      {state.code} - {state.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -261,7 +247,6 @@ export default function AllEmails() {
                     <SelectItem value="pending">Pendentes</SelectItem>
                     <SelectItem value="classified">Classificados</SelectItem>
                     <SelectItem value="archived">Arquivados</SelectItem>
-                    <SelectItem value="urgent">Urgentes</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -274,8 +259,10 @@ export default function AllEmails() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos os estados</SelectItem>
-                    {estadosBrasil.map((uf) => (
-                      <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                    {BRAZILIAN_STATES.map((state) => (
+                      <SelectItem key={state.code} value={state.code}>
+                        {state.code} - {state.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -302,7 +289,7 @@ export default function AllEmails() {
             )}
             {stateFilter !== "all" && (
               <Badge variant="secondary" className="text-xs">
-                Estado: {stateFilter}
+                Estado: {getStateName(stateFilter)}
               </Badge>
             )}
             {senderFilter !== "all" && (
@@ -386,6 +373,18 @@ export default function AllEmails() {
                           <Badge className={`text-xs ${getStatusColor(email.status)}`}>
                             {getStatusText(email.status)}
                           </Badge>
+                          {email.priority && email.priority !== "medium" && (
+                            <Badge 
+                              variant="outline" 
+                              className={`text-xs ${
+                                email.priority === "urgent" ? "border-red-300 text-red-700 dark:text-red-300" :
+                                email.priority === "high" ? "border-orange-300 text-orange-700 dark:text-orange-300" :
+                                "border-blue-300 text-blue-700 dark:text-blue-300"
+                              }`}
+                            >
+                              {getPriorityText(email.priority)}
+                            </Badge>
+                          )}
                           {email.category && (
                             <Badge variant="outline" className="text-xs">
                               {email.category}
@@ -401,15 +400,11 @@ export default function AllEmails() {
 
                       {/* METADADOS */}
                       <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs text-muted-foreground">
-                        {email.receiver && (
-                          <>
-                            <div className="flex items-center gap-1">
-                              <span className="font-medium">Para:</span>
-                              <span className="truncate">{email.receiver}</span>
-                            </div>
-                            <div className="hidden sm:block">•</div>
-                          </>
-                        )}
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium">Para:</span>
+                          <span className="truncate">{email.recipient}</span>
+                        </div>
+                        <div className="hidden sm:block">•</div>
                         <div>
                           {new Date(email.date).toLocaleDateString("pt-BR", {
                             day: "2-digit",
@@ -422,10 +417,21 @@ export default function AllEmails() {
                         {email.city && (
                           <>
                             <div className="hidden sm:block">•</div>
-                            <div>{email.city}</div>
+                            <div>{email.city}, {email.state}</div>
                           </>
                         )}
                       </div>
+
+                      {/* TAGS */}
+                      {email.tags && email.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {email.tags.map((tag) => (
+                            <Badge key={tag} variant="secondary" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
 
                       {/* PRÉVIA DO CONTEÚDO */}
                       <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 mt-1">

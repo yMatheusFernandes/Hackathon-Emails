@@ -42,25 +42,9 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+// ✅ IMPORTANDO AS CONSTANTES CENTRALIZADAS
 import type { Email } from "@/lib/emailStorage";
-
-// Estados do Brasil
-const estadosBrasil = [
-  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
-  "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
-  "RS", "RO", "RR", "SC", "SP", "SE", "TO"
-];
-
-// Categorias disponíveis
-const categorias = [
-  "Trabalho",
-  "Pessoal", 
-  "Financeiro",
-  "Suporte",
-  "Marketing",
-  "Compras",
-  "Outros"
-];
+import { BRAZILIAN_STATES, EMAIL_CATEGORIES } from "@/lib/emailStorage";
 
 export default function EmailDetail() {
   const { id } = useParams<{ id: string }>();
@@ -243,7 +227,7 @@ export default function EmailDetail() {
         description: success 
           ? `"${email.subject}" foi removido do histórico e agora aparece como pendente.`
           : `"${email.subject}" foi movido localmente. Os dados podem não estar sincronizados com o servidor.`,
-        variant: success ? "default" : "warning",
+        variant: success ? "default" : "destructive", // ✅ CORRIGIDO: "warning" → "destructive"
         duration: 4000,
       });
 
@@ -561,7 +545,8 @@ export default function EmailDetail() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="">Nenhuma</SelectItem>
-                    {categorias.map(cat => (
+                    {/* ✅ USANDO EMAIL_CATEGORIES CENTRALIZADA */}
+                    {EMAIL_CATEGORIES.map(cat => (
                       <SelectItem key={cat} value={cat.toLowerCase()}>{cat}</SelectItem>
                     ))}
                   </SelectContent>
@@ -585,8 +570,11 @@ export default function EmailDetail() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="">Nenhum</SelectItem>
-                    {estadosBrasil.map(uf => (
-                      <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                    {/* ✅ USANDO BRAZILIAN_STATES CENTRALIZADA */}
+                    {BRAZILIAN_STATES.map(state => (
+                      <SelectItem key={state.code} value={state.code}>
+                        {state.code} - {state.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

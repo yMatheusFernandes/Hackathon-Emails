@@ -5,20 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Filter, Eye, X } from "lucide-react";
-import { type Email } from "@/lib/emailStorage";
+import { Search, Filter, Eye, X, MapPin } from "lucide-react";
+// ✅ IMPORTANDO AS CONSTANTES CENTRALIZADAS
+import { type Email, BRAZILIAN_STATES, EMAIL_CATEGORIES, BRAZILIAN_CITIES_BY_STATE } from "@/lib/emailStorage";
 import { fetchEmails } from "@/services/api";
 import { useToast } from "@/components/ui/use-toast";
 
 function useQuery() {
   return new URLSearchParams(useLocation().search);
 }
-
-const estadosBrasil = [
-  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
-  "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
-  "RS", "RO", "RR", "SC", "SP", "SE", "TO"
-];
 
 // 👉 TYPE usado para normalizar os dados da API
 type EmailFromAPI = {
@@ -45,6 +40,7 @@ export default function History() {
   const urlCategory = query.get("category") ?? "all";
   const urlSearch = query.get("search") ?? "";
   const urlState = query.get("state") ?? "all";
+  const urlCity = query.get("city") ?? "all";
   const urlSort = query.get("sort") ?? "newest";
 
   // estados reativos
@@ -53,6 +49,8 @@ export default function History() {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState(urlCategory);
   const [stateFilter, setStateFilter] = useState(urlState);
+  const [cityFilter, setCityFilter] = useState(urlCity);
+  const [availableCities, setAvailableCities] = useState<string[]>([]);
   const [sortOption, setSortOption] = useState(urlSort);
 
   // ============================
@@ -65,6 +63,7 @@ export default function History() {
         setSearchTerm(urlSearch);
         setCategoryFilter(urlCategory);
         setStateFilter(urlState);
+        setCityFilter(urlCity);
         setSortOption(urlSort);
 
         // Chama a API
@@ -82,7 +81,7 @@ export default function History() {
           console.warn("Formato inesperado de fetchEmails:", response);
         }
 
-        // Normalizar - INCLUINDO RECIPIENT
+        // Normalizar - INCLUINDO RECIPIENT E MUNICÍPIO
         const normalized: Email[] = apiEmails.map((e: EmailFromAPI) => ({
           id: e.id,
           subject: e.assunto || "",
@@ -92,12 +91,13 @@ export default function History() {
           date: e.data || "",
           status: e.classificado ? "classified" : "pending",
           state: e.estado || "",
+          city: e.municipio || "", // ✅ Adicionando município
           category: e.categoria || "",
           tags: [],
           priority: "medium",
         }));
 
-        console.log("Emails normalizados:", normalized);
+        console.log("Emails normalizados (com município):", normalized);
 
         setEmails(normalized);
 
@@ -114,6 +114,21 @@ export default function History() {
     load();
   }, [location.search]);
 
+  // Atualizar cidades disponíveis quando o estado muda
+  useEffect(() => {
+    if (stateFilter !== "all") {
+      const cities = BRAZILIAN_CITIES_BY_STATE[stateFilter] || [];
+      setAvailableCities(cities);
+      // Se a cidade atual não está na lista do novo estado, resetar para "all"
+      if (cityFilter !== "all" && !cities.includes(cityFilter)) {
+        setCityFilter("all");
+      }
+    } else {
+      setAvailableCities([]);
+      setCityFilter("all");
+    }
+  }, [stateFilter]);
+
   // ============================
   //         FILTRAGEM
   // ============================
@@ -126,15 +141,24 @@ export default function History() {
         e.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
         e.sender.toLowerCase().includes(searchTerm.toLowerCase()) ||
         e.recipient.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        e.content.toLowerCase().includes(searchTerm.toLowerCase())
+        e.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (e.city && e.city.toLowerCase().includes(searchTerm.toLowerCase())) // Buscar também por município
       );
     }
 
-    if (categoryFilter !== "all") filtered = filtered.filter(e =>
-      e.category?.toLowerCase() === categoryFilter.toLowerCase()
-    );
+    if (categoryFilter !== "all") {
+      filtered = filtered.filter(e =>
+        e.category?.toLowerCase() === categoryFilter.toLowerCase()
+      );
+    }
     
-    if (stateFilter !== "all") filtered = filtered.filter(e => e.state === stateFilter);
+    if (stateFilter !== "all") {
+      filtered = filtered.filter(e => e.state === stateFilter);
+    }
+
+    if (cityFilter !== "all") {
+      filtered = filtered.filter(e => e.city === cityFilter);
+    }
 
     // Ordenação
     filtered.sort((a, b) =>
@@ -144,13 +168,14 @@ export default function History() {
     );
 
     setFilteredEmails(filtered);
-  }, [emails, searchTerm, categoryFilter, stateFilter, sortOption]);
+  }, [emails, searchTerm, categoryFilter, stateFilter, cityFilter, sortOption]);
 
   // Resetar filtros
   const clearFilters = () => {
     setSearchTerm("");
     setCategoryFilter("all");
     setStateFilter("all");
+    setCityFilter("all");
     setSortOption("newest");
     navigate("/history");
   };
@@ -169,15 +194,33 @@ export default function History() {
     pending: "Pendente",
   }[status] ?? status);
 
-  const categoriesBase = ["Trabalho", "Pessoal", "Financeiro", "Suporte", "Marketing", "Compras"];
+  // ✅ USANDO EMAIL_CATEGORIES CENTRALIZADA
+  // Combine categorias da API com as categorias padrão
   const categories = Array.from(new Set([
-    ...categoriesBase,
+    ...EMAIL_CATEGORIES,
     ...emails.map(e => e.category).filter(Boolean) as string[],
   ]));
+
+  // Obter todos os municípios únicos dos e-mails filtrados por estado
+  const getCitiesForCurrentState = () => {
+    if (stateFilter === "all") return [];
+    
+    const stateEmails = emails.filter(e => e.state === stateFilter && e.status === "classified");
+    const uniqueCities = Array.from(new Set(
+      stateEmails
+        .map(e => e.city)
+        .filter(Boolean) as string[]
+    ));
+    
+    return uniqueCities.sort();
+  };
+
+  const citiesForFilter = stateFilter !== "all" ? getCitiesForCurrentState() : [];
 
   const hasActiveFilters =
     categoryFilter !== "all" ||
     stateFilter !== "all" ||
+    cityFilter !== "all" ||
     searchTerm !== "" ||
     sortOption !== "newest";
 
@@ -188,7 +231,7 @@ export default function History() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold mb-1">Histórico de E-mails</h1>
           <p className="text-sm sm:text-base text-muted-foreground">
-            E-mails já classificados
+            E-mails já classificados por estado e município
           </p>
         </div>
 
@@ -203,7 +246,7 @@ export default function History() {
       <Card>
         <CardHeader className="p-4 sm:p-6">
           <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-            <Filter className="h-4 w-4 sm:h-5 sm:w-5" /> Filtros
+            <Filter className="h-4 w-4 sm:h-5 sm:w-5" /> Filtros Avançados
           </CardTitle>
         </CardHeader>
 
@@ -212,7 +255,7 @@ export default function History() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por assunto, remetente, destinatário ou conteúdo..."
+              placeholder="Buscar por assunto, remetente, destinatário, conteúdo ou município..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               className="pl-10 text-sm sm:text-base"
@@ -220,7 +263,7 @@ export default function History() {
           </div>
 
           {/* FILTROS EM GRID */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Categoria */}
             <div className="space-y-1">
               <label className="text-xs sm:text-sm font-medium">Categoria</label>
@@ -230,6 +273,7 @@ export default function History() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas</SelectItem>
+                  {/* ✅ USANDO EMAIL_CATEGORIES CENTRALIZADA */}
                   {categories.map(c => (
                     <SelectItem key={c} value={c.toLowerCase()}>{c}</SelectItem>
                   ))}
@@ -246,9 +290,43 @@ export default function History() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os estados</SelectItem>
-                  {estadosBrasil.map(uf => (
-                    <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                  {/* ✅ USANDO BRAZILIAN_STATES CENTRALIZADA */}
+                  {BRAZILIAN_STATES.map(state => (
+                    <SelectItem key={state.code} value={state.code}>
+                      {state.code} - {state.name}
+                    </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Município */}
+            <div className="space-y-1">
+              <label className="text-xs sm:text-sm font-medium">Município</label>
+              <Select 
+                value={cityFilter} 
+                onValueChange={setCityFilter}
+                disabled={stateFilter === "all"}
+              >
+                <SelectTrigger className="text-xs sm:text-sm">
+                  <SelectValue placeholder={
+                    stateFilter === "all" 
+                      ? "Selecione um estado primeiro" 
+                      : "Município"
+                  } />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os municípios</SelectItem>
+                  {citiesForFilter.map(city => (
+                    <SelectItem key={city} value={city}>
+                      {city}
+                    </SelectItem>
+                  ))}
+                  {stateFilter !== "all" && citiesForFilter.length === 0 && (
+                    <SelectItem value="all" disabled>
+                      Nenhum município encontrado
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -280,6 +358,11 @@ export default function History() {
                 Estado: {stateFilter}
               </Badge>
             )}
+            {cityFilter !== "all" && (
+              <Badge variant="secondary" className="text-xs">
+                Município: {cityFilter}
+              </Badge>
+            )}
             {sortOption !== "newest" && (
               <Badge variant="secondary" className="text-xs">
                 Ordenação: {sortOption === "oldest" ? "Mais antigos" : "Personalizada"}
@@ -289,7 +372,10 @@ export default function History() {
 
           {/* CONTAGEM */}
           <p className="text-sm text-muted-foreground pt-2 border-t">
-            Mostrando {filteredEmails.length} e-mail{filteredEmails.length !== 1 ? 's' : ''} classificados
+            Mostrando {filteredEmails.length} e-mail{filteredEmails.length !== 1 ? 's' : ''} classificado
+            {filteredEmails.length !== 1 ? 's' : ''}
+            {stateFilter !== "all" && ` no estado ${stateFilter}`}
+            {cityFilter !== "all" && ` no município ${cityFilter}`}
           </p>
         </CardContent>
       </Card>
@@ -300,10 +386,15 @@ export default function History() {
           <Card>
             <CardContent className="py-10 sm:py-16 text-center">
               <p className="text-muted-foreground text-sm sm:text-base">
-                {searchTerm || categoryFilter !== "all" || stateFilter !== "all"
+                {searchTerm || categoryFilter !== "all" || stateFilter !== "all" || cityFilter !== "all"
                   ? "Nenhum e-mail encontrado com os filtros atuais"
                   : "Nenhum e-mail classificado no momento"}
               </p>
+              {stateFilter === "all" && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Dica: Selecione um estado para filtrar por município
+                </p>
+              )}
             </CardContent>
           </Card>
         ) : (
@@ -330,6 +421,12 @@ export default function History() {
                           {email.state}
                         </Badge>
                       )}
+                      {email.city && (
+                        <Badge variant="secondary" className="text-xs">
+                          <MapPin className="h-2 w-2 mr-1" />
+                          {email.city}
+                        </Badge>
+                      )}
                     </div>
                   </div>
 
@@ -354,6 +451,15 @@ export default function History() {
                         minute: "2-digit"
                       })}
                     </div>
+                    {email.city && (
+                      <>
+                        <div className="hidden sm:block">•</div>
+                        <div className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          <span>{email.city}</span>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   {/* PRÉVIA DO CONTEÚDO */}
@@ -391,6 +497,36 @@ export default function History() {
           ↑ Topo
         </Button>
       )}
+
+      {/* ESTATÍSTICAS */}
+      {filteredEmails.length > 0 && (
+        <Card>
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex flex-wrap gap-4 items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                <span className="font-medium">Distribuição por localização:</span>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {(() => {
+                    const stateCounts = filteredEmails.reduce((acc, email) => {
+                      acc[email.state] = (acc[email.state] || 0) + 1;
+                      return acc;
+                    }, {} as Record<string, number>);
+                    
+                    return Object.entries(stateCounts).map(([state, count]) => (
+                      <Badge key={state} variant="outline" className="text-xs">
+                        {state}: {count}
+                      </Badge>
+                    ));
+                  })()}
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Atualizado em {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
-} 
+}

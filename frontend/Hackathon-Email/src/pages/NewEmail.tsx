@@ -17,28 +17,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Mail, Send, MapPin, Tag, Calendar, User } from "lucide-react";
 import { createEmail } from "@/services/api";
 
-// Estados brasileiros
-const states = [
-  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", 
-  "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", 
-  "RS", "RO", "RR", "SC", "SP", "SE", "TO"
-];
-
-// Municípios por estado (exemplo simplificado)
-const citiesByState: Record<string, string[]> = {
-  "PI": ["Teresina", "Picos", "Piripiri", "Floriano", "Parnaíba", "Outro"],
-  "CE": ["Fortaleza", "Caucaia", "Juazeiro do Norte", "Maracanaú", "Sobral", "Outro"],
-  "MA": ["São Luís", "Imperatriz", "São José de Ribamar", "Timon", "Caxias", "Outro"],
-  "SP": ["São Paulo", "Campinas", "Guarulhos", "São Bernardo do Campo", "Santo André", "Outro"],
-  "RJ": ["Rio de Janeiro", "São Gonçalo", "Duque de Caxias", "Nova Iguaçu", "Niterói", "Outro"],
-  "MG": ["Belo Horizonte", "Uberlândia", "Contagem", "Juiz de Fora", "Betim", "Outro"],
-  "RS": ["Porto Alegre", "Caxias do Sul", "Canoas", "Pelotas", "Santa Maria", "Outro"],
-  "PR": ["Curitiba", "Londrina", "Maringá", "Ponta Grossa", "Cascavel", "Outro"],
-};
-
-// Categorias (as mesmas do emailStorage)
-const categories = ['Trabalho', 'Pessoal', 'Financeiro', 'Suporte', 'Marketing', 'Vendas', 'Compras'];
-
+// ✅ IMPORTANDO AS CONSTANTES CENTRALIZADAS
+import { BRAZILIAN_STATES, EMAIL_CATEGORIES, BRAZILIAN_CITIES_BY_STATE } from "@/lib/emailStorage";
 
 // Interface local para o formulário
 interface EmailFormData {
@@ -66,6 +46,7 @@ export default function NewEmail() {
   });
 
   const [availableCities, setAvailableCities] = useState<string[]>([]);
+  const [showManualCityInput, setShowManualCityInput] = useState(false);
 
   const handleStateChange = (state: string) => {
     setFormData(prev => ({ 
@@ -73,58 +54,67 @@ export default function NewEmail() {
       state,
       city: "" // Limpa a cidade quando muda o estado
     }));
+    setShowManualCityInput(false);
     
-    // Atualiza a lista de cidades disponíveis
-    const cities = citiesByState[state] || [];
-    setAvailableCities(cities);
+    // ✅ USANDO BRAZILIAN_CITIES_BY_STATE CENTRALIZADA
+    const cities = BRAZILIAN_CITIES_BY_STATE[state] || [];
+    setAvailableCities([...cities, "Outro"]);
   };
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+  const handleCityChange = (city: string) => {
+    if (city === "Outro") {
+      setShowManualCityInput(true);
+      setFormData(prev => ({ ...prev, city: "" }));
+    } else {
+      setShowManualCityInput(false);
+      setFormData(prev => ({ ...prev, city }));
+    }
+  };
 
-  if (!formData.subject || !formData.sender || !formData.content || !formData.state || !formData.city) {
-    toast({
-      title: "Erro",
-      description: "Preencha todos os campos obrigatórios (Assunto, Remetente, Conteúdo, Estado e Município).",
-      variant: "destructive",
-    });
-    return;
-  }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  try {
-    const payload = {
-      assunto: formData.subject,
-      remetente: formData.sender,
-      destinatario: formData.recipient || "cliente@email.com",
-      corpo: formData.content,
-      estado: formData.state,
-      municipio: formData.city,
-      categoria: formData.category || null
-    };
+    if (!formData.subject || !formData.sender || !formData.content || !formData.state || !formData.city) {
+      toast({
+        title: "Erro",
+        description: "Preencha todos os campos obrigatórios (Assunto, Remetente, Conteúdo, Estado e Município).",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    const created = await createEmail(payload);
+    try {
+      const payload = {
+        assunto: formData.subject,
+        remetente: formData.sender,
+        destinatario: formData.recipient || "cliente@email.com",
+        corpo: formData.content,
+        estado: formData.state,
+        municipio: formData.city,
+        categoria: formData.category || null
+      };
 
-    toast({
-      title: "📨 E-mail criado!",
-      description: `Local: ${formData.state} - ${formData.city}`,
-    });
+      const created = await createEmail(payload);
 
-    navigate(`/email/${created.data.id}`);
+      toast({
+        title: "📨 E-mail criado!",
+        description: `Local: ${formData.state} - ${formData.city}`,
+      });
 
-  } catch (err) {
-    toast({
-      title: "Erro ao criar e-mail",
-      description: "O servidor não conseguiu salvar o novo e-mail.",
-      variant: "destructive",
-    });
-  }
-};
+      navigate(`/email/${created.data.id}`);
 
+    } catch (err) {
+      toast({
+        title: "Erro ao criar e-mail",
+        description: "O servidor não conseguiu salvar o novo e-mail.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleChange = (field: keyof EmailFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
-
 
   // Calcula se o formulário está completo para habilitar/desabilitar botão
   const isFormComplete = () => {
@@ -135,42 +125,48 @@ const handleSubmit = async (e: React.FormEvent) => {
            formData.city; // Estado e cidade são obrigatórios
   };
 
+  // ✅ Obter o nome completo do estado usando a função utilitária
+  const getStateName = (stateCode: string): string => {
+    const state = BRAZILIAN_STATES.find(s => s.code === stateCode);
+    return state ? state.name : stateCode;
+  };
+
   return (
-    <div className="max-w-4xl mx-auto animate-fade-in">
+    <div className="max-w-4xl mx-auto animate-fade-in px-4 sm:px-6">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2 flex items-center gap-3">
-          <Mail className="h-8 w-8 text-primary" />
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2 flex items-center gap-3">
+          <Mail className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
           Novo E-mail Manual
         </h1>
-        <p className="text-muted-foreground text-lg">
+        <p className="text-muted-foreground text-base sm:text-lg">
           Cadastre e classifique o e-mail em uma única etapa
         </p>
       </div>
 
       <Card className="shadow-lg">
-        <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b">
-          <CardTitle className="flex items-center gap-3 text-2xl">
-            <Mail className="h-6 w-6" />
+        <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b p-4 sm:p-6">
+          <CardTitle className="flex items-center gap-3 text-xl sm:text-2xl">
+            <Mail className="h-5 w-5 sm:h-6 sm:w-6" />
             Cadastro e Classificação
           </CardTitle>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground mt-2 text-sm sm:text-base">
             Preencha todos os campos para registrar um novo e-mail já classificado
           </p>
         </CardHeader>
 
-        <CardContent className="pt-6">
-          <form onSubmit={handleSubmit} className="space-y-8">
+        <CardContent className="pt-6 p-4 sm:p-6">
+          <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
             {/* Seção 1: Informações Básicas */}
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold flex items-center gap-2 pb-2 border-b">
-                <Calendar className="h-5 w-5" />
+            <div className="space-y-4 sm:space-y-6">
+              <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2 pb-2 border-b">
+                <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
                 Informações do E-mail
               </h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-4 sm:gap-6">
                 {/* Assunto */}
-                <div className="space-y-3">
-                  <Label htmlFor="subject" className="font-medium">
+                <div className="space-y-2 sm:space-y-3">
+                  <Label htmlFor="subject" className="font-medium text-sm sm:text-base">
                     Assunto *
                   </Label>
                   <Input 
@@ -178,49 +174,48 @@ const handleSubmit = async (e: React.FormEvent) => {
                     value={formData.subject} 
                     onChange={(e) => handleChange("subject", e.target.value)} 
                     placeholder="Ex: Proposta Comercial, Orçamento, Suporte Técnico..."
-                    className="h-11"
+                    className="h-10 sm:h-11 text-sm sm:text-base"
                   />
                 </div>
 
-                
-              </div>
-
-              {/* Categoria */}
-              <div className="space-y-3">
-                <Label className="font-medium flex items-center gap-2">
-                  <Tag className="h-4 w-4" />
-                  Categoria
-                </Label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {categories.map((category) => (
-                    <Button
-                      key={category}
-                      type="button"
-                      variant={formData.category === category ? "default" : "outline"}
-                      className={`justify-start ${
-                        formData.category === category 
-                          ? 'bg-primary text-primary-foreground' 
-                          : ''
-                      }`}
-                      onClick={() => handleChange("category", category)}
-                    >
-                      {category}
-                    </Button>
-                  ))}
+                {/* Categoria */}
+                <div className="space-y-2 sm:space-y-3">
+                  <Label className="font-medium flex items-center gap-2 text-sm sm:text-base">
+                    <Tag className="h-4 w-4" />
+                    Categoria
+                  </Label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {/* ✅ USANDO EMAIL_CATEGORIES CENTRALIZADA */}
+                    {EMAIL_CATEGORIES.map((category) => (
+                      <Button
+                        key={category}
+                        type="button"
+                        variant={formData.category === category ? "default" : "outline"}
+                        className={`justify-start text-xs sm:text-sm ${
+                          formData.category === category 
+                            ? 'bg-primary text-primary-foreground' 
+                            : ''
+                        }`}
+                        onClick={() => handleChange("category", category)}
+                      >
+                        {category}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Seção 2: Remetente e Destinatário */}
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold flex items-center gap-2 pb-2 border-b">
-                <User className="h-5 w-5" />
+            <div className="space-y-4 sm:space-y-6">
+              <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2 pb-2 border-b">
+                <User className="h-4 w-4 sm:h-5 sm:w-5" />
                 Contatos
               </h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <Label htmlFor="sender" className="font-medium">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                <div className="space-y-2 sm:space-y-3">
+                  <Label htmlFor="sender" className="font-medium text-sm sm:text-base">
                     Remetente *
                   </Label>
                   <Input 
@@ -228,12 +223,12 @@ const handleSubmit = async (e: React.FormEvent) => {
                     value={formData.sender} 
                     onChange={(e) => handleChange("sender", e.target.value)} 
                     placeholder="seu.email@empresa.com"
-                    className="h-11"
+                    className="h-10 sm:h-11 text-sm sm:text-base"
                   />
                 </div>
 
-                <div className="space-y-3">
-                  <Label htmlFor="recipient" className="font-medium">
+                <div className="space-y-2 sm:space-y-3">
+                  <Label htmlFor="recipient" className="font-medium text-sm sm:text-base">
                     Destinatário
                   </Label>
                   <Input 
@@ -241,69 +236,63 @@ const handleSubmit = async (e: React.FormEvent) => {
                     value={formData.recipient} 
                     onChange={(e) => handleChange("recipient", e.target.value)} 
                     placeholder="cliente@email.com"
-                    className="h-11"
+                    className="h-10 sm:h-11 text-sm sm:text-base"
                   />
                 </div>
               </div>
             </div>
 
             {/* Seção 3: Conteúdo */}
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold flex items-center gap-2 pb-2 border-b">
-                <Mail className="h-5 w-5" />
+            <div className="space-y-4 sm:space-y-6">
+              <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2 pb-2 border-b">
+                <Mail className="h-4 w-4 sm:h-5 sm:w-5" />
                 Conteúdo da Mensagem
               </h3>
               
-              <div className="space-y-3">
-                <Label htmlFor="content" className="font-medium">
+              <div className="space-y-2 sm:space-y-3">
+                <Label htmlFor="content" className="font-medium text-sm sm:text-base">
                   Conteúdo *
                 </Label>
                 <Textarea 
                   id="content"
-                  rows={10} 
+                  rows={8} 
                   value={formData.content} 
                   onChange={(e) => handleChange("content", e.target.value)} 
                   placeholder="Digite o conteúdo completo da mensagem..."
-                  className="resize-y min-h-[200px] font-mono text-sm"
+                  className="resize-y min-h-[150px] sm:min-h-[200px] font-mono text-xs sm:text-sm"
                 />
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   Caracteres: {formData.content.length} (mínimo recomendado: 50)
                 </p>
               </div>
             </div>
 
             {/* Seção 4: Localização */}
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold flex items-center gap-2 pb-2 border-b">
-                <MapPin className="h-5 w-5" />
+            <div className="space-y-4 sm:space-y-6">
+              <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2 pb-2 border-b">
+                <MapPin className="h-4 w-4 sm:h-5 sm:w-5" />
                 Localização *
               </h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <Label>Estado (UF) *</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                <div className="space-y-2 sm:space-y-3">
+                  <Label className="text-sm sm:text-base">Estado (UF) *</Label>
                   <Select 
                     value={formData.state} 
                     onValueChange={handleStateChange}
                   >
-                    <SelectTrigger className="h-11">
+                    <SelectTrigger className="h-10 sm:h-11 text-sm sm:text-base">
                       <SelectValue placeholder="Selecione o estado" />
                     </SelectTrigger>
                     <SelectContent className="max-h-[300px]">
-                      {states.map((state) => (
-                        <SelectItem key={state} value={state}>
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono bg-gray-100 px-2 py-1 rounded text-xs">
-                              {state}
+                      {/* ✅ USANDO BRAZILIAN_STATES CENTRALIZADA */}
+                      {BRAZILIAN_STATES.map((state) => (
+                        <SelectItem key={state.code} value={state.code}>
+                          <div className="flex items-center gap-2 py-1">
+                            <span className="font-mono bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-xs">
+                              {state.code}
                             </span>
-                            <span>
-                              {state === 'PI' ? 'Piauí' :
-                               state === 'CE' ? 'Ceará' :
-                               state === 'MA' ? 'Maranhão' :
-                               state === 'SP' ? 'São Paulo' :
-                               state === 'RJ' ? 'Rio de Janeiro' :
-                               state}
-                            </span>
+                            <span className="text-sm">{state.name}</span>
                           </div>
                         </SelectItem>
                       ))}
@@ -311,14 +300,14 @@ const handleSubmit = async (e: React.FormEvent) => {
                   </Select>
                 </div>
 
-                <div className="space-y-3">
-                  <Label>Município *</Label>
+                <div className="space-y-2 sm:space-y-3">
+                  <Label className="text-sm sm:text-base">Município *</Label>
                   <Select 
                     value={formData.city} 
-                    onValueChange={(value) => handleChange("city", value)}
+                    onValueChange={handleCityChange}
                     disabled={!formData.state}
                   >
-                    <SelectTrigger className="h-11">
+                    <SelectTrigger className="h-10 sm:h-11 text-sm sm:text-base">
                       <SelectValue placeholder={
                         formData.state 
                           ? "Selecione o município" 
@@ -331,59 +320,56 @@ const handleSubmit = async (e: React.FormEvent) => {
                           {city}
                         </SelectItem>
                       ))}
-                      {availableCities.length === 0 && formData.state && (
-                        <div className="p-4 text-center text-muted-foreground">
-                          Digite o município manualmente
-                        </div>
-                      )}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               
-              {formData.state && formData.city && (
-                <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <MapPin className="h-5 w-5 text-primary" />
-                      <div>
-                        <p className="font-medium">Localização definida:</p>
-                        <p className="text-lg font-bold text-primary">
-                          {formData.state} - {formData.city}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      ✓ Pronto para cadastrar
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Se não houver municípios no dropdown, permitir entrada manual */}
-              {formData.state && availableCities.length === 0 && (
-                <div className="space-y-3">
-                  <Label htmlFor="cityManual">Município (digite manualmente) *</Label>
+              {/* Campo manual para "Outro" */}
+              {showManualCityInput && (
+                <div className="space-y-2 sm:space-y-3">
+                  <Label htmlFor="cityManual" className="text-sm sm:text-base">
+                    Digite o nome do município *
+                  </Label>
                   <Input 
                     id="cityManual"
                     value={formData.city} 
                     onChange={(e) => handleChange("city", e.target.value)} 
                     placeholder="Digite o nome do município"
-                    className="h-11"
+                    className="h-10 sm:h-11 text-sm sm:text-base"
                   />
+                </div>
+              )}
+
+              {formData.state && formData.city && (
+                <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 sm:p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <MapPin className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                      <div>
+                        <p className="font-medium text-sm sm:text-base">Localização definida:</p>
+                        <p className="text-base sm:text-lg font-bold text-primary">
+                          {getStateName(formData.state)} - {formData.city}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-xs sm:text-sm text-muted-foreground">
+                      ✓ Pronto para cadastrar
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
 
             {/* Botões */}
-            <div className="pt-8 border-t space-y-4">
-              <div className="flex flex-col sm:flex-row gap-4">
+            <div className="pt-6 sm:pt-8 border-t space-y-4">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <Button 
                   type="submit" 
-                  className="flex-1 h-12 text-lg"
+                  className="flex-1 h-10 sm:h-12 text-sm sm:text-lg"
                   disabled={!isFormComplete()}
                 >
-                  <Send className="h-5 w-5 mr-3" /> 
+                  <Send className="h-4 w-4 sm:h-5 sm:w-5 mr-2 sm:mr-3" /> 
                   {isFormComplete() ? "Cadastrar e Classificar" : "Preencha todos os campos obrigatórios"}
                 </Button>
 
@@ -391,18 +377,18 @@ const handleSubmit = async (e: React.FormEvent) => {
                   type="button" 
                   variant="outline" 
                   onClick={() => navigate("/")}
-                  className="h-12"
+                  className="h-10 sm:h-12 text-sm sm:text-base"
                 >
                   Cancelar
                 </Button>
               </div>
               
-              <div className="flex flex-wrap gap-3 justify-center">
+              <div className="flex flex-wrap gap-2 sm:gap-3 justify-center">
                 <Button 
                   type="button" 
                   variant="ghost" 
                   onClick={() => navigate("/pending")}
-                  className="text-blue-600 hover:text-blue-800"
+                  className="text-blue-600 hover:text-blue-800 text-xs sm:text-sm"
                 >
                   Ver E-mails Pendentes
                 </Button>
@@ -410,7 +396,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   type="button" 
                   variant="ghost" 
                   onClick={() => navigate("/history")}
-                  className="text-green-600 hover:text-green-800"
+                  className="text-green-600 hover:text-green-800 text-xs sm:text-sm"
                 >
                   Ver Histórico Classificado
                 </Button>
@@ -418,7 +404,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             </div>
 
             {/* Informações */}
-            <div className="bg-muted/30 rounded-lg p-4 space-y-2 text-sm">
+            <div className="bg-muted/30 rounded-lg p-3 sm:p-4 space-y-2 text-xs sm:text-sm">
               <div className="flex items-center gap-2 font-medium">
                 <div className="w-2 h-2 rounded-full bg-green-500"></div>
                 <p>✅ Este e-mail será cadastrado já classificado</p>
@@ -428,8 +414,8 @@ const handleSubmit = async (e: React.FormEvent) => {
                 Irá direto para o histórico • 
                 Não aparecerá em "Pendentes"
               </p>
-              <p className="text-muted-foreground pl-4 mt-2">
-                <strong>Observação:</strong> A data/hora são registradas automaticamente. O município será salvo na propriedade `city` (que precisa ser adicionada ao tipo Email).
+              <p className="text-muted-foreground pl-4 mt-1 sm:mt-2">
+                <strong>Observação:</strong> A data/hora são registradas automaticamente.
               </p>
             </div>
           </form>

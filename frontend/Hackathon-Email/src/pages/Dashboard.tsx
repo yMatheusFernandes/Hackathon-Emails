@@ -47,11 +47,8 @@ import {
   Bar,
 } from "recharts";
 
-const estadosBrasil = [
-  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", 
-  "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", 
-  "RS", "RO", "RR", "SC", "SP", "SE", "TO"
-];
+// ✅ IMPORTANDO AS CONSTANTES CENTRALIZADAS
+import { BRAZILIAN_STATES, EMAIL_CATEGORIES } from "@/lib/emailStorage";
 
 const COLORS = {
   pending: "hsl(var(--warning))",
@@ -79,13 +76,18 @@ const ICONS: Record<string, any> = {
   TrendingUp,
 };
 
+type ChartType = 'pie' | 'bar';
+
 interface CustomChart {
   id: string;
   title: string;
   data: any[];
+  type: ChartType;
   filters: {
     state: string;
     status: string;
+    chartType: ChartType;
+    showCities: boolean;
   };
   createdAt: string;
 }
@@ -122,6 +124,8 @@ export default function Dashboard() {
 
   const [chartState, setChartState] = useState("all");
   const [chartStatus, setChartStatus] = useState("all");
+  const [chartType, setChartType] = useState<ChartType>('pie');
+  const [showCities, setShowCities] = useState(false);
   const [customCharts, setCustomCharts] = useState<CustomChart[]>([]);
   const [chartTitle, setChartTitle] = useState("");
 
@@ -205,53 +209,111 @@ export default function Dashboard() {
     }
   };
 
-  const gerarGraficoPersonalizado = () => {
+  const gerarGraficoPersonalizado = async () => {
     if (!chartTitle.trim()) {
       alert("Por favor, dê um título ao gráfico!");
       return;
     }
 
-    let filtrados = [...emails];
+    if (chartState === "all") {
+      alert("Selecione um estado específico para criar o gráfico personalizado!");
+      return;
+    }
 
-    if (chartState !== "all")
-      filtrados = filtrados.filter((e) => e.state === chartState);
-    if (chartStatus !== "all")
-      filtrados = filtrados.filter((e) => e.status === chartStatus);
+    try {
+      // Buscar dados específicos do estado
+      const result = await fetchDashboardStats();
+      
+      if (!result || result.error) {
+        console.error("Erro ao carregar dados:", result?.error);
+        alert("Erro ao carregar dados para o gráfico!");
+        return;
+      }
 
-    const categorias = filtrados.reduce((acc, email) => {
-      const categoria = email.category?.toLowerCase() || "outros";
-      if (!acc[categoria]) acc[categoria] = 0;
-      acc[categoria]++;
-      return acc;
-    }, {} as Record<string, number>);
+      const data = result.data;
+      let chartData = [];
 
-    const data = Object.entries(categorias).map(([name, value]) => ({
-      name: name.charAt(0).toUpperCase() + name.slice(1),
-      value,
-      color:
-        CATEGORY_COLORS[name as keyof typeof CATEGORY_COLORS] ||
-        CATEGORY_COLORS.outros,
-    }));
+      if (chartType === 'pie') {
+        // Gráfico de pizza: Distribuição de status no estado selecionado
+        const stateEmails = emails.filter(email => email.state === chartState);
+        
+        const statusCount = stateEmails.reduce((acc, email) => {
+          const status = email.status || 'unknown';
+          if (!acc[status]) acc[status] = 0;
+          acc[status]++;
+          return acc;
+        }, {} as Record<string, number>);
 
-    const newChart: CustomChart = {
-      id: Date.now().toString(),
-      title: chartTitle,
-      data,
-      filters: {
-        state: chartState,
-        status: chartStatus,
-      },
-      createdAt: new Date().toLocaleString("pt-BR"),
-    };
+        chartData = Object.entries(statusCount).map(([status, count]) => ({
+          name: status === 'pending' ? 'Pendentes' : 
+                status === 'classified' ? 'Classificados' : 
+                status === 'archived' ? 'Arquivados' : 
+                status.charAt(0).toUpperCase() + status.slice(1),
+          value: count,
+          color: COLORS[status as keyof typeof COLORS] || COLORS.pending,
+        }));
 
-    const updatedCharts = [...customCharts, newChart];
-    setCustomCharts(updatedCharts);
-    saveChartsToLocalStorage(updatedCharts);
+      } else if (chartType === 'bar') {
+        // Gráfico de barras: Distribuição por categoria no estado selecionado
+        const stateEmails = emails.filter(email => email.state === chartState);
+        
+        const categoryCount = stateEmails.reduce((acc, email) => {
+          const category = email.category?.toLowerCase() || 'outros';
+          if (!acc[category]) acc[category] = 0;
+          acc[category]++;
+          return acc;
+        }, {} as Record<string, number>);
 
-    setChartTitle("");
-    setChartState("all");
-    setChartStatus("all");
-    setIsCustomChartOpen(false);
+        chartData = Object.entries(categoryCount).map(([category, count]) => ({
+          name: category === 'marketing' ? 'Marketing' :
+                category === 'financeiro' ? 'Financeiro' :
+                category === 'suporte' ? 'Suporte' :
+                category === 'pessoal' ? 'Pessoal' : 'Outros',
+          value: count,
+          color: CATEGORY_COLORS[category as keyof typeof CATEGORY_COLORS] || CATEGORY_COLORS.outros,
+        }));
+
+        // Ordenar por quantidade (maior para menor)
+        chartData.sort((a, b) => b.value - a.value);
+      }
+
+      if (chartData.length === 0) {
+        alert(`Nenhum dado encontrado para o estado ${chartState} com os filtros aplicados!`);
+        return;
+      }
+
+      const newChart: CustomChart = {
+        id: Date.now().toString(),
+        title: chartTitle,
+        data: chartData,
+        type: chartType,
+        filters: {
+          state: chartState,
+          status: chartStatus,
+          chartType: chartType,
+          showCities: showCities,
+        },
+        createdAt: new Date().toLocaleString("pt-BR"),
+      };
+
+      const updatedCharts = [...customCharts, newChart];
+      setCustomCharts(updatedCharts);
+      saveChartsToLocalStorage(updatedCharts);
+
+      // Limpar formulário
+      setChartTitle("");
+      setChartState("all");
+      setChartStatus("all");
+      setChartType("pie");
+      setShowCities(false);
+      setIsCustomChartOpen(false);
+
+      alert(`Gráfico "${chartTitle}" criado com sucesso para o estado ${chartState}!`);
+
+    } catch (error) {
+      console.error("Erro ao gerar gráfico personalizado:", error);
+      alert("Erro ao processar dados para o gráfico!");
+    }
   };
 
   const removerGrafico = (id: string) => {
@@ -412,7 +474,7 @@ export default function Dashboard() {
       return;
     }
     const filterStatus = card.filterStatus;
-    if (!filterStatus) return navigate("/history");
+    if (!filterStatus) return navigate("/all-emails");
     navigate(`/history?status=${filterStatus}`);
   };
 
@@ -565,10 +627,12 @@ export default function Dashboard() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas</SelectItem>
-                    <SelectItem value="marketing">Marketing</SelectItem>
-                    <SelectItem value="financeiro">Financeiro</SelectItem>
-                    <SelectItem value="suporte">Suporte</SelectItem>
-                    <SelectItem value="pessoal">Pessoal</SelectItem>
+                    {/* ✅ USANDO EMAIL_CATEGORIES CENTRALIZADA */}
+                    {EMAIL_CATEGORIES.map((cat) => (
+                      <SelectItem key={cat} value={cat.toLowerCase()}>
+                        {cat}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -582,9 +646,10 @@ export default function Dashboard() {
                   </SelectTrigger>
                   <SelectContent className="max-h-[200px]">
                     <SelectItem value="all">Todos</SelectItem>
-                    {estadosBrasil.map((uf) => (
-                      <SelectItem key={uf} value={uf}>
-                        {uf}
+                    {/* ✅ USANDO BRAZILIAN_STATES CENTRALIZADA */}
+                    {BRAZILIAN_STATES.map((state) => (
+                      <SelectItem key={state.code} value={state.code}>
+                        {state.code} - {state.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -625,35 +690,53 @@ export default function Dashboard() {
                 Título do Gráfico *
               </label>
               <Input
-                placeholder="Ex: Distribuição por Categoria no PI"
+                placeholder="Ex: Distribuição no Estado SP"
                 value={chartTitle}
                 onChange={(e) => setChartTitle(e.target.value)}
                 className="text-sm sm:text-base"
               />
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs sm:text-sm text-muted-foreground">
-                Estado
-              </label>
-              <Select value={chartState} onValueChange={setChartState}>
-                <SelectTrigger className="text-xs sm:text-sm">
-                  <SelectValue placeholder="Estado" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[200px]">
-                  <SelectItem value="all">Todos os Estados</SelectItem>
-                  {estadosBrasil.map((uf) => (
-                    <SelectItem key={uf} value={uf}>
-                      {uf}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs sm:text-sm text-muted-foreground">
+                  Tipo de Gráfico *
+                </label>
+                <Select value={chartType} onValueChange={(value: ChartType) => setChartType(value)}>
+                  <SelectTrigger className="text-xs sm:text-sm">
+                    <SelectValue placeholder="Tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pie">Pizza (Status)</SelectItem>
+                    <SelectItem value="bar">Barras (Categorias)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs sm:text-sm text-muted-foreground">
+                  Estado *
+                </label>
+                <Select value={chartState} onValueChange={setChartState}>
+                  <SelectTrigger className="text-xs sm:text-sm">
+                    <SelectValue placeholder="Estado" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[200px]">
+                    <SelectItem value="all">Selecione um estado</SelectItem>
+                   
+                    {BRAZILIAN_STATES.map((state) => (
+                      <SelectItem key={state.code} value={state.code}>
+                        {state.code} - {state.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="space-y-1">
               <label className="text-xs sm:text-sm text-muted-foreground">
-                Status
+                Status (Filtro opcional)
               </label>
               <Select value={chartStatus} onValueChange={setChartStatus}>
                 <SelectTrigger className="text-xs sm:text-sm">
@@ -663,9 +746,25 @@ export default function Dashboard() {
                   <SelectItem value="all">Todos os Status</SelectItem>
                   <SelectItem value="pending">Pendentes</SelectItem>
                   <SelectItem value="classified">Classificados</SelectItem>
-                  <SelectItem value="archived">Arquivados</SelectItem>
+                
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Opção para municípios (para uso futuro) */}
+            <div className="flex items-center space-x-2 p-2">
+              <input
+                type="checkbox"
+                id="showCities"
+                checked={showCities}
+                onChange={(e) => setShowCities(e.target.checked)}
+                disabled={true}
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+              />
+              <label htmlFor="showCities" className="text-xs sm:text-sm text-muted-foreground">
+                Incluir municípios (em breve)
+              </label>
+              <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">Em breve</span>
             </div>
 
             <div className="p-3 bg-muted/30 rounded-md">
@@ -673,7 +772,7 @@ export default function Dashboard() {
                 Prévia do gráfico:
               </p>
               <p className="text-xs sm:text-sm text-muted-foreground break-words">
-                {chartTitle || "(Sem título)"}
+                {chartTitle || "(Sem título)"} - {chartType === 'pie' ? 'Gráfico de Pizza' : 'Gráfico de Barras'}
                 {chartState !== "all" && ` - Estado: ${chartState}`}
                 {chartStatus !== "all" &&
                   ` - Status: ${
@@ -698,6 +797,7 @@ export default function Dashboard() {
             <Button
               onClick={gerarGraficoPersonalizado}
               className="w-full sm:w-auto order-1 sm:order-2"
+              disabled={chartState === "all"}
             >
               Criar Gráfico
             </Button>
@@ -812,7 +912,12 @@ export default function Dashboard() {
 
                   <CardHeader className="p-3 sm:p-6">
                     <CardTitle className="text-base sm:text-lg">
-                      <div className="truncate">{chart.title}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="truncate">{chart.title}</div>
+                        <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded-full">
+                          {chart.type === 'pie' ? 'Pizza' : 'Barras'}
+                        </span>
+                      </div>
                       <div className="text-xs sm:text-sm text-muted-foreground font-normal mt-1 break-words">
                         Criado em: {chart.createdAt}
                         {chart.filters.state !== "all" &&
@@ -831,35 +936,70 @@ export default function Dashboard() {
                   <CardContent className="h-[250px] sm:h-[300px] p-2 sm:p-6">
                     {chart.data.length > 0 ? (
                       <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={chart.data}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            outerRadius={70}
-                            dataKey="value"
-                            label={({ name, percent }) =>
-                              `${name}: ${(percent * 100).toFixed(0)}%`
-                            }
-                          >
-                            {chart.data.map((entry, i) => (
-                              <Cell key={i} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <Tooltip
-                            formatter={(value) => [
-                              `${value} e-mails`,
-                              "Quantidade",
-                            ]}
-                          />
-                          <Legend
-                            wrapperStyle={{
-                              fontSize: "12px",
-                              paddingTop: "10px",
-                            }}
-                          />
-                        </PieChart>
+                        {chart.type === 'pie' ? (
+                          <PieChart>
+                            <Pie
+                              data={chart.data}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={false}
+                              outerRadius={70}
+                              dataKey="value"
+                              label={({ name, percent }) =>
+                                `${name}: ${(percent * 100).toFixed(0)}%`
+                              }
+                            >
+                              {chart.data.map((entry, i) => (
+                                <Cell key={i} fill={entry.color} />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              formatter={(value) => [
+                                `${value} e-mails`,
+                                "Quantidade",
+                              ]}
+                            />
+                            <Legend
+                              wrapperStyle={{
+                                fontSize: "12px",
+                                paddingTop: "10px",
+                              }}
+                            />
+                          </PieChart>
+                        ) : (
+                          <BarChart data={chart.data}>
+                            <CartesianGrid
+                              strokeDasharray="3 3"
+                              stroke="hsl(var(--border))"
+                            />
+                            <XAxis
+                              dataKey="name"
+                              stroke="hsl(var(--muted-foreground))"
+                              fontSize={12}
+                              angle={-45}
+                              textAnchor="end"
+                              height={60}
+                            />
+                            <YAxis
+                              stroke="hsl(var(--muted-foreground))"
+                              fontSize={12}
+                            />
+                            <Tooltip
+                              contentStyle={{
+                                backgroundColor: "hsl(var(--popover))",
+                                border: "1px solid hsl(var(--border))",
+                                borderRadius: "0.5rem",
+                                fontSize: "12px",
+                              }}
+                              formatter={(value) => [`${value} e-mails`, "Quantidade"]}
+                            />
+                            <Bar 
+                              dataKey="value" 
+                              fill="hsl(var(--primary))"
+                              name="Quantidade"
+                            />
+                          </BarChart>
+                        )}
                       </ResponsiveContainer>
                     ) : (
                       <div className="flex items-center justify-center h-full">
@@ -1037,6 +1177,84 @@ export default function Dashboard() {
               </ul>
             </CardContent>
           </Card>
+
+      
+
+        {/* TOP ESTADOS COM DETALHES */}
+        <Card className="hover:shadow-lg transition-shadow">
+          <CardHeader className="p-3 sm:p-6">
+            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+              <span>📍</span> Análise Geográfica Detalhada
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-2 sm:p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div>
+                <h4 className="text-sm font-medium mb-3">Top 10 Estados</h4>
+                <div className="space-y-2">
+                  {topStates.slice(0, 10).map(({ state, count }, index) => {
+                    const percentage = (count / stats.total * 100).toFixed(1);
+                    return (
+                      <div key={state} className="flex items-center gap-3">
+                        <div className="w-6 h-6 flex items-center justify-center bg-primary/10 rounded text-xs font-medium">
+                          {index + 1}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="font-medium">{state}</span>
+                            <span>{count} ({percentage}%)</span>
+                          </div>
+                          <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
+                            <div 
+                              className="bg-primary h-full transition-all duration-500"
+                              style={{ width: `${percentage}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              <div>
+                <h4 className="text-sm font-medium mb-3">Distribuição Regional</h4>
+                <div className="space-y-3">
+                  {[
+                    { region: "Sudeste", states: ["SP", "RJ", "MG", "ES"], color: "bg-blue-500" },
+                    { region: "Sul", states: ["PR", "SC", "RS"], color: "bg-green-500" },
+                    { region: "Nordeste", states: ["BA", "PE", "CE", "MA", "PB", "PI", "RN", "AL", "SE"], color: "bg-yellow-500" },
+                    { region: "Centro-Oeste", states: ["GO", "MT", "MS", "DF"], color: "bg-purple-500" },
+                    { region: "Norte", states: ["PA", "AM", "TO", "RO", "AC", "AP", "RR"], color: "bg-red-500" }
+                  ].map(({ region, states, color }) => {
+                    const regionCount = topStates
+                      .filter(item => states.includes(item.state))
+                      .reduce((sum, item) => sum + item.count, 0);
+                    const regionPercentage = (regionCount / stats.total * 100).toFixed(1);
+                    
+                    return (
+                      <div key={region} className="space-y-1">
+                        <div className="flex justify-between text-sm">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-3 h-3 ${color} rounded-full`}></div>
+                            <span>{region}</span>
+                          </div>
+                          <span>{regionCount} ({regionPercentage}%)</span>
+                        </div>
+                        <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full ${color} transition-all duration-500`}
+                            style={{ width: `${regionPercentage}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
         </div>
       </div>
     </div>
