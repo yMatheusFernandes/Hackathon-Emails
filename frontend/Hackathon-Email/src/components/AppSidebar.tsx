@@ -104,7 +104,10 @@ export function AppSidebar() {
         {/* Botão de sair */}
         <div className="p-4 border-t border-[#1B263B]">
           <button
-            onClick={() => navigate("/login")}
+            onClick={() => {
+              localStorage.removeItem("auth"); // remove a autenticação
+              navigate("/login"); // redireciona
+            }}
             className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-[#1B263B]"
           >
             <LogOut className="h-5 w-5" />

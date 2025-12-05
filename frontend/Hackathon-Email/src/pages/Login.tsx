@@ -10,9 +10,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Mail, Lock, User, Users, LogOut } from "lucide-react";
+import { Lock, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import Logo from "@/assets/images/StorkMail_logo.png";
+import Logo from "@/assets/images/StorkMailGG.png";
 
 export default function Login() {
   const [name, setName] = useState("");
@@ -33,11 +33,9 @@ export default function Login() {
       return;
     }
 
-    // Credenciais fixas do gerente
     const GERENTE_LOGIN = "gerente@storkmail.com";
     const GERENTE_SENHA = "admin123";
 
-    // Validação
     if (name !== GERENTE_LOGIN || password !== GERENTE_SENHA) {
       toast({
         title: "Acesso negado",
@@ -51,11 +49,16 @@ export default function Login() {
 
     setTimeout(() => {
       setIsLoading(false);
+
+      // Autorização somente após login correto
+      localStorage.setItem("auth", "true");
+
       toast({
         title: "Login realizado",
         description: `Bem-vindo, gerente!`,
       });
-      navigate("/Dashboard");
+
+      navigate("/dashboard");
     }, 800);
   };
 
@@ -64,11 +67,11 @@ export default function Login() {
       <div className="w-full max-w-md animate-fade-in">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <div className="bg-white p-2 rounded-lg w-40 h-40 flex items-center justify-center overflow-hidden shadow-md">
+            <div className="bg-white p-2 rounded-lg w-96 h-40 flex items-center justify-center overflow-hidden shadow-md scale-125">
               <img
                 src={Logo}
                 alt="Logo"
-                className="w-full h-full object-cover scale-150 -translate-y-4"
+                className="max-w-full max-h-full object-contain"
               />
             </div>
           </div>
@@ -119,8 +122,6 @@ export default function Login() {
                 {isLoading ? "Entrando..." : "Entrar"}
               </Button>
             </form>
-
-            
           </CardContent>
         </Card>
       </div>
