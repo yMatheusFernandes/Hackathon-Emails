@@ -27,10 +27,10 @@ import {
   Trash2,
   FileDown,
   X,
+  Menu,
 } from "lucide-react";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
-import { getEmailStats, getEmails } from "@/lib/emailStorage";
 import {
   LineChart,
   Line,
@@ -48,33 +48,9 @@ import {
 } from "recharts";
 
 const estadosBrasil = [
-  "AC",
-  "AL",
-  "AP",
-  "AM",
-  "BA",
-  "CE",
-  "DF",
-  "ES",
-  "GO",
-  "MA",
-  "MT",
-  "MS",
-  "MG",
-  "PA",
-  "PB",
-  "PR",
-  "PE",
-  "PI",
-  "RJ",
-  "RN",
-  "RS",
-  "RO",
-  "RR",
-  "SC",
-  "SP",
-  "SE",
-  "TO",
+  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", 
+  "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", 
+  "RS", "RO", "RR", "SC", "SP", "SE", "TO"
 ];
 
 const COLORS = {
@@ -103,7 +79,6 @@ const ICONS: Record<string, any> = {
   TrendingUp,
 };
 
-// Interface para o gráfico personalizado salvo
 interface CustomChart {
   id: string;
   title: string;
@@ -121,6 +96,7 @@ export default function Dashboard() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isCustomChartOpen, setIsCustomChartOpen] = useState(false);
+  const [showMobileActions, setShowMobileActions] = useState(false);
 
   const [stats, setStats] = useState({
     total: 0,
@@ -144,13 +120,11 @@ export default function Dashboard() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [stateFilter, setStateFilter] = useState("all");
 
-  // Estados para o gráfico personalizado
   const [chartState, setChartState] = useState("all");
   const [chartStatus, setChartStatus] = useState("all");
   const [customCharts, setCustomCharts] = useState<CustomChart[]>([]);
   const [chartTitle, setChartTitle] = useState("");
 
-  // ---------- CARREGAR GRÁFICOS SALVOS ----------
   useEffect(() => {
     const savedCharts = localStorage.getItem("customDashboardCharts");
     if (savedCharts) {
@@ -163,7 +137,6 @@ export default function Dashboard() {
     }
   }, []);
 
-  // ---------- SALVAR GRÁFICOS ----------
   const saveChartsToLocalStorage = (charts: CustomChart[]) => {
     try {
       localStorage.setItem("customDashboardCharts", JSON.stringify(charts));
@@ -172,7 +145,6 @@ export default function Dashboard() {
     }
   };
 
-  // ---------- FUNÇÕES DE PDF ----------
   const gerarPreview = async () => {
     if (!exportRef.current) return alert("Seção do dashboard não encontrada!");
     try {
@@ -233,7 +205,6 @@ export default function Dashboard() {
     }
   };
 
-  // ---------- FUNÇÃO DO GRÁFICO PERSONALIZADO ----------
   const gerarGraficoPersonalizado = () => {
     if (!chartTitle.trim()) {
       alert("Por favor, dê um título ao gráfico!");
@@ -247,7 +218,6 @@ export default function Dashboard() {
     if (chartStatus !== "all")
       filtrados = filtrados.filter((e) => e.status === chartStatus);
 
-    // Agrupar por categoria
     const categorias = filtrados.reduce((acc, email) => {
       const categoria = email.category?.toLowerCase() || "outros";
       if (!acc[categoria]) acc[categoria] = 0;
@@ -255,7 +225,6 @@ export default function Dashboard() {
       return acc;
     }, {} as Record<string, number>);
 
-    // Converter para o formato do gráfico
     const data = Object.entries(categorias).map(([name, value]) => ({
       name: name.charAt(0).toUpperCase() + name.slice(1),
       value,
@@ -264,7 +233,6 @@ export default function Dashboard() {
         CATEGORY_COLORS.outros,
     }));
 
-    // Criar novo gráfico
     const newChart: CustomChart = {
       id: Date.now().toString(),
       title: chartTitle,
@@ -276,26 +244,22 @@ export default function Dashboard() {
       createdAt: new Date().toLocaleString("pt-BR"),
     };
 
-    // Adicionar à lista
     const updatedCharts = [...customCharts, newChart];
     setCustomCharts(updatedCharts);
     saveChartsToLocalStorage(updatedCharts);
 
-    // Limpar formulário
     setChartTitle("");
     setChartState("all");
     setChartStatus("all");
     setIsCustomChartOpen(false);
   };
 
-  // ---------- REMOVER GRÁFICO ----------
   const removerGrafico = (id: string) => {
     const updatedCharts = customCharts.filter((chart) => chart.id !== id);
     setCustomCharts(updatedCharts);
     saveChartsToLocalStorage(updatedCharts);
   };
 
-  // ---------- CÁLCULO DE CARDS ----------
   const calculateCardValue = (filters: Record<string, string>) => {
     return emails.filter((email) => {
       const emailCategory =
@@ -325,8 +289,6 @@ export default function Dashboard() {
     }).length;
   };
 
-  // ...
-
   useEffect(() => {
     const loadData = async () => {
       const result = await fetchDashboardStats();
@@ -338,17 +300,15 @@ export default function Dashboard() {
 
       const data = result.data;
 
-      // 1 — Atualiza cards principais
       setStats({
         total: data.total,
         pending: data.pendentes,
         classified: data.classificados,
         recent: data.emails_ultimos_7_dias,
-        archived: 0, // sua API ainda não retorna isso
-        urgent: 0, // nem isso
+        archived: 0,
+        urgent: 0,
       });
 
-      // 2 — Atualiza gráficos
       setChartData([
         { name: "Pendentes", value: data.pendentes, color: COLORS.pending },
         {
@@ -358,7 +318,6 @@ export default function Dashboard() {
         },
       ]);
 
-      // 3 — Tendência (por enquanto usa apenas número bruto)
       setDailyTrend([
         {
           date: "Últimos 7 dias",
@@ -367,23 +326,20 @@ export default function Dashboard() {
         },
       ]);
 
-      // 4 — Top estados
       const estados = Object.entries(data.emails_por_estado).map(
         ([estado, count]) => ({ state: estado, count })
       );
       setTopStates(estados);
 
-    // 5 — Top remetentes
-    setTopSenders(
-      data.top_remetentes.map((item: any) => ({
-        sender: item.nome,
-        sender_email: item.email,
-        count: item.total_emails,
-      }))
-    );
+      setTopSenders(
+        data.top_remetentes.map((item: any) => ({
+          sender: item.nome,
+          sender_email: item.email,
+          count: item.total_emails,
+        }))
+      );
 
-      // 6 — Emails brutos (se precisar depois)
-      setEmails([]); // Sua API ainda não retorna todos os emails
+      setEmails([]);
     };
 
     loadData();
@@ -493,54 +449,118 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 animate-fade-in px-4 sm:px-6">
+      {/* HEADER MOBILE OTIMIZADO */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
+            Dashboard
+          </h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Visão geral do sistema de gestão de e-mails
           </p>
         </div>
-        <div className="flex gap-2">
+        
+        {/* BOTÕES PARA DESKTOP */}
+        <div className="hidden sm:flex gap-2">
           <Button onClick={() => setIsDialogOpen(true)} size="sm">
-            <Plus className="h-4 w-4 mr-1" /> Adicionar Atalho
+            <Plus className="h-4 w-4 mr-1" />
+            <span className="hidden xs:inline">Adicionar Atalho</span>
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => setIsCustomChartOpen(true)}
           >
-            <TrendingUp className="h-4 w-4 mr-1" /> Gráfico Personalizado
+            <TrendingUp className="h-4 w-4 mr-1" />
+            <span className="hidden xs:inline">Gráfico Personalizado</span>
           </Button>
-
           <Button variant="outline" size="sm" onClick={gerarPreview}>
-            <FileDown className="h-4 w-4 mr-1" /> Pré-visualizar PDF
+            <FileDown className="h-4 w-4 mr-1" />
+            <span className="hidden xs:inline">Pré-visualizar PDF</span>
           </Button>
+        </div>
+
+        {/* MENU MOBILE */}
+        <div className="sm:hidden">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowMobileActions(!showMobileActions)}
+            className="w-full"
+          >
+            <Menu className="h-4 w-4 mr-2" />
+            Ações
+          </Button>
+          
+          {showMobileActions && (
+            <div className="absolute left-0 right-0 mt-2 mx-4 bg-popover border rounded-lg shadow-lg z-50 p-3 space-y-2">
+              <Button
+                onClick={() => {
+                  setIsDialogOpen(true);
+                  setShowMobileActions(false);
+                }}
+                variant="ghost"
+                className="w-full justify-start"
+                size="sm"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Adicionar Atalho
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full justify-start"
+                size="sm"
+                onClick={() => {
+                  setIsCustomChartOpen(true);
+                  setShowMobileActions(false);
+                }}
+              >
+                <TrendingUp className="h-4 w-4 mr-2" />
+                Gráfico Personalizado
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full justify-start"
+                size="sm"
+                onClick={() => {
+                  gerarPreview();
+                  setShowMobileActions(false);
+                }}
+              >
+                <FileDown className="h-4 w-4 mr-2" />
+                Pré-visualizar PDF
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
       {/* DIALOG DE NOVO ATALHO */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Novo Atalho Personalizado</DialogTitle>
+            <DialogTitle className="text-lg sm:text-xl">
+              Novo Atalho Personalizado
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <Input
               placeholder="Ex: Urgentes - Suporte"
               value={newCardTitle}
               onChange={(e) => setNewCardTitle(e.target.value)}
+              className="text-sm sm:text-base"
             />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
-              <div>
-                <label className="text-sm text-muted-foreground">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div className="space-y-1">
+                <label className="text-xs sm:text-sm text-muted-foreground">
                   Categoria
                 </label>
                 <Select
                   value={categoryFilter}
                   onValueChange={setCategoryFilter}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="text-xs sm:text-sm">
                     <SelectValue placeholder="Categoria" />
                   </SelectTrigger>
                   <SelectContent>
@@ -552,13 +572,15 @@ export default function Dashboard() {
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <label className="text-sm text-muted-foreground">Estado</label>
+              <div className="space-y-1">
+                <label className="text-xs sm:text-sm text-muted-foreground">
+                  Estado
+                </label>
                 <Select value={stateFilter} onValueChange={setStateFilter}>
-                  <SelectTrigger>
+                  <SelectTrigger className="text-xs sm:text-sm">
                     <SelectValue placeholder="Estado" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-[200px]">
                     <SelectItem value="all">Todos</SelectItem>
                     {estadosBrasil.map((uf) => (
                       <SelectItem key={uf} value={uf}>
@@ -570,43 +592,55 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsDialogOpen(false)}
+              className="w-full sm:w-auto order-2 sm:order-1"
+            >
               Cancelar
             </Button>
-            <Button onClick={addCustomCard}>Salvar</Button>
+            <Button
+              onClick={addCustomCard}
+              className="w-full sm:w-auto order-1 sm:order-2"
+            >
+              Salvar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* DIALOG DO GRÁFICO PERSONALIZADO */}
       <Dialog open={isCustomChartOpen} onOpenChange={setIsCustomChartOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Criar Novo Gráfico Personalizado</DialogTitle>
+            <DialogTitle className="text-lg sm:text-xl">
+              Criar Novo Gráfico Personalizado
+            </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* Título do gráfico */}
-            <div>
-              <label className="text-sm text-muted-foreground">
+            <div className="space-y-1">
+              <label className="text-xs sm:text-sm text-muted-foreground">
                 Título do Gráfico *
               </label>
               <Input
                 placeholder="Ex: Distribuição por Categoria no PI"
                 value={chartTitle}
                 onChange={(e) => setChartTitle(e.target.value)}
+                className="text-sm sm:text-base"
               />
             </div>
 
-            {/* Estado */}
-            <div>
-              <label className="text-sm text-muted-foreground">Estado</label>
+            <div className="space-y-1">
+              <label className="text-xs sm:text-sm text-muted-foreground">
+                Estado
+              </label>
               <Select value={chartState} onValueChange={setChartState}>
-                <SelectTrigger>
+                <SelectTrigger className="text-xs sm:text-sm">
                   <SelectValue placeholder="Estado" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-[200px]">
                   <SelectItem value="all">Todos os Estados</SelectItem>
                   {estadosBrasil.map((uf) => (
                     <SelectItem key={uf} value={uf}>
@@ -617,11 +651,12 @@ export default function Dashboard() {
               </Select>
             </div>
 
-            {/* Status */}
-            <div>
-              <label className="text-sm text-muted-foreground">Status</label>
+            <div className="space-y-1">
+              <label className="text-xs sm:text-sm text-muted-foreground">
+                Status
+              </label>
               <Select value={chartStatus} onValueChange={setChartStatus}>
-                <SelectTrigger>
+                <SelectTrigger className="text-xs sm:text-sm">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -633,10 +668,11 @@ export default function Dashboard() {
               </Select>
             </div>
 
-            {/* Prévia do título do gráfico */}
             <div className="p-3 bg-muted/30 rounded-md">
-              <p className="text-sm font-medium mb-1">Prévia do gráfico:</p>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs sm:text-sm font-medium mb-1">
+                Prévia do gráfico:
+              </p>
+              <p className="text-xs sm:text-sm text-muted-foreground break-words">
                 {chartTitle || "(Sem título)"}
                 {chartState !== "all" && ` - Estado: ${chartState}`}
                 {chartStatus !== "all" &&
@@ -651,50 +687,67 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button
               variant="outline"
               onClick={() => setIsCustomChartOpen(false)}
+              className="w-full sm:w-auto order-2 sm:order-1"
             >
               Cancelar
             </Button>
-            <Button onClick={gerarGraficoPersonalizado}>Criar Gráfico</Button>
+            <Button
+              onClick={gerarGraficoPersonalizado}
+              className="w-full sm:w-auto order-1 sm:order-2"
+            >
+              Criar Gráfico
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* DIALOG DO PREVIEW DO PDF */}
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="max-w-5xl">
+        <DialogContent className="max-w-[95vw] sm:max-w-5xl p-2 sm:p-6">
           <DialogHeader>
-            <DialogTitle>Pré-visualização do Relatório</DialogTitle>
+            <DialogTitle className="text-lg sm:text-xl">
+              Pré-visualização do Relatório
+            </DialogTitle>
           </DialogHeader>
           {previewImage ? (
-            <div className="max-h-[70vh] overflow-auto border rounded-md">
+            <div className="max-h-[60vh] sm:max-h-[70vh] overflow-auto border rounded-md">
               <img src={previewImage} alt="Prévia do PDF" className="w-full" />
             </div>
           ) : (
-            <p className="text-center text-muted-foreground py-10">
+            <p className="text-center text-muted-foreground py-10 text-sm sm:text-base">
               Gerando preview...
             </p>
           )}
-          <DialogFooter className="pt-4">
-            <Button variant="outline" onClick={() => setIsPreviewOpen(false)}>
+          <DialogFooter className="pt-4 flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsPreviewOpen(false)}
+              className="w-full sm:w-auto order-2 sm:order-1"
+            >
               Cancelar
             </Button>
-            <Button onClick={gerarPDF}>Baixar PDF</Button>
+            <Button
+              onClick={gerarPDF}
+              className="w-full sm:w-auto order-1 sm:order-2"
+            >
+              Baixar PDF
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* CARDS PRINCIPAIS (SEM ARQUIVADOS E URGENTES) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+      {/* CARDS PRINCIPAIS RESPONSIVOS */}
+      <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
         {statCards.map((stat, index) => {
           const Icon = ICONS[stat.icon as keyof typeof ICONS];
           return (
             <Card
               key={stat.title}
-              className="hover:shadow-lg transition-shadow animate-slide-up cursor-pointer relative"
+              className="hover:shadow-lg transition-shadow animate-slide-up cursor-pointer relative min-h-[120px] sm:min-h-[140px]"
               style={{ animationDelay: `${index * 0.1}s` }}
               onClick={() => handleCardClick(stat)}
             >
@@ -704,21 +757,21 @@ export default function Dashboard() {
                     e.stopPropagation();
                     removeCard(stat.title);
                   }}
-                  className="absolute top-2 right-2 text-muted-foreground hover:text-destructive transition"
+                  className="absolute top-2 right-2 text-muted-foreground hover:text-destructive transition z-10"
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                 </button>
               )}
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardHeader className="flex flex-row items-center justify-between pb-2 p-3 sm:p-6">
+                <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground truncate">
                   {stat.title}
                 </CardTitle>
-                <div className={`${stat.bgColor} p-2 rounded-lg`}>
-                  <Icon className={`h-5 w-5 ${stat.color}`} />
+                <div className={`${stat.bgColor} p-1 sm:p-2 rounded-lg`}>
+                  <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${stat.color}`} />
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-foreground">
+              <CardContent className="p-3 sm:p-6 pt-0">
+                <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">
                   {stat.value}
                 </div>
               </CardContent>
@@ -728,22 +781,22 @@ export default function Dashboard() {
       </div>
 
       {/* GRÁFICOS */}
-      <div id="dashboard-export" ref={exportRef} className="space-y-6">
+      <div id="dashboard-export" ref={exportRef} className="space-y-4 sm:space-y-6">
         {/* GRÁFICOS PERSONALIZADOS SALVOS */}
         {customCharts.length > 0 && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-foreground">
+          <div className="space-y-4 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <h2 className="text-xl sm:text-2xl font-bold text-foreground">
                 Gráficos Personalizados
               </h2>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-xs sm:text-sm text-muted-foreground">
                 {customCharts.length} gráfico
                 {customCharts.length !== 1 ? "s" : ""} salvo
                 {customCharts.length !== 1 ? "s" : ""}
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               {customCharts.map((chart) => (
                 <Card
                   key={chart.id}
@@ -751,16 +804,16 @@ export default function Dashboard() {
                 >
                   <button
                     onClick={() => removerGrafico(chart.id)}
-                    className="absolute top-3 right-3 text-muted-foreground hover:text-destructive transition z-10"
+                    className="absolute top-2 right-2 text-muted-foreground hover:text-destructive transition z-10 bg-background/80 backdrop-blur-sm rounded-full p-1"
                     title="Remover gráfico"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-3 w-3 sm:h-4 sm:w-4" />
                   </button>
 
-                  <CardHeader>
-                    <CardTitle className="text-lg">
-                      {chart.title}
-                      <div className="text-sm text-muted-foreground font-normal mt-1">
+                  <CardHeader className="p-3 sm:p-6">
+                    <CardTitle className="text-base sm:text-lg">
+                      <div className="truncate">{chart.title}</div>
+                      <div className="text-xs sm:text-sm text-muted-foreground font-normal mt-1 break-words">
                         Criado em: {chart.createdAt}
                         {chart.filters.state !== "all" &&
                           ` • Estado: ${chart.filters.state}`}
@@ -775,7 +828,7 @@ export default function Dashboard() {
                       </div>
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="h-[300px]">
+                  <CardContent className="h-[250px] sm:h-[300px] p-2 sm:p-6">
                     {chart.data.length > 0 ? (
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
@@ -784,7 +837,7 @@ export default function Dashboard() {
                             cx="50%"
                             cy="50%"
                             labelLine={false}
-                            outerRadius={80}
+                            outerRadius={70}
                             dataKey="value"
                             label={({ name, percent }) =>
                               `${name}: ${(percent * 100).toFixed(0)}%`
@@ -800,12 +853,17 @@ export default function Dashboard() {
                               "Quantidade",
                             ]}
                           />
-                          <Legend />
+                          <Legend
+                            wrapperStyle={{
+                              fontSize: "12px",
+                              paddingTop: "10px",
+                            }}
+                          />
                         </PieChart>
                       </ResponsiveContainer>
                     ) : (
                       <div className="flex items-center justify-center h-full">
-                        <p className="text-muted-foreground">
+                        <p className="text-sm text-muted-foreground text-center px-4">
                           Nenhum dado encontrado com os filtros aplicados
                         </p>
                       </div>
@@ -817,24 +875,26 @@ export default function Dashboard() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* GRÁFICO DE PIZZA (Apenas Pendentes e Classificados) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+          {/* GRÁFICO DE PIZZA */}
           <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <CardTitle>E-mails por Status</CardTitle>
+            <CardHeader className="p-3 sm:p-6">
+              <CardTitle className="text-base sm:text-lg">
+                E-mails por Status
+              </CardTitle>
             </CardHeader>
-            <CardContent className="h-[300px]">
+            <CardContent className="h-[250px] sm:h-[300px] p-2 sm:p-6">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={chartData} // ← já contém apenas pendentes e classificados
+                    data={chartData}
                     cx="50%"
                     cy="50%"
                     labelLine={false}
                     label={({ name, percent }) =>
                       `${name}: ${(percent * 100).toFixed(0)}%`
                     }
-                    outerRadius={80}
+                    outerRadius={70}
                     dataKey="value"
                   >
                     {chartData.map((entry, index) => (
@@ -842,32 +902,53 @@ export default function Dashboard() {
                     ))}
                   </Pie>
                   <Tooltip />
+                  <Legend
+                    wrapperStyle={{
+                      fontSize: "12px",
+                      paddingTop: "10px",
+                    }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
 
+          {/* GRÁFICO DE LINHA */}
           <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <CardTitle>Tendência Diária (Últimos 7 dias)</CardTitle>
+            <CardHeader className="p-3 sm:p-6">
+              <CardTitle className="text-base sm:text-lg">
+                Tendência Diária (Últimos 7 dias)
+              </CardTitle>
             </CardHeader>
-            <CardContent className="h-[300px]">
+            <CardContent className="h-[250px] sm:h-[300px] p-2 sm:p-6">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={dailyTrend}>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     stroke="hsl(var(--border))"
                   />
-                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
-                  <YAxis stroke="hsl(var(--muted-foreground))" />
+                  <XAxis
+                    dataKey="date"
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={12}
+                  />
+                  <YAxis
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={12}
+                  />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: "hsl(var(--popover))",
                       border: "1px solid hsl(var(--border))",
                       borderRadius: "0.5rem",
+                      fontSize: "12px",
                     }}
                   />
-                  <Legend />
+                  <Legend
+                    wrapperStyle={{
+                      fontSize: "12px",
+                    }}
+                  />
                   <Line
                     type="monotone"
                     dataKey="emails"
@@ -889,12 +970,14 @@ export default function Dashboard() {
         </div>
 
         {/* TOP 5 ESTADOS E REMETENTES */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <CardTitle>Top 5 Estados por Volume</CardTitle>
+            <CardHeader className="p-3 sm:p-6">
+              <CardTitle className="text-base sm:text-lg">
+                Top 5 Estados por Volume
+              </CardTitle>
             </CardHeader>
-            <CardContent className="h-[300px]">
+            <CardContent className="h-[250px] sm:h-[300px] p-2 sm:p-6">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={topStates}>
                   <CartesianGrid
@@ -904,13 +987,18 @@ export default function Dashboard() {
                   <XAxis
                     dataKey="state"
                     stroke="hsl(var(--muted-foreground))"
+                    fontSize={12}
                   />
-                  <YAxis stroke="hsl(var(--muted-foreground))" />
+                  <YAxis
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={12}
+                  />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: "hsl(var(--popover))",
                       border: "1px solid hsl(var(--border))",
                       borderRadius: "0.5rem",
+                      fontSize: "12px",
                     }}
                   />
                   <Bar dataKey="count" fill="hsl(var(--primary))" />
@@ -920,23 +1008,28 @@ export default function Dashboard() {
           </Card>
 
           <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <CardTitle>Top 5 Remetentes</CardTitle>
+            <CardHeader className="p-3 sm:p-6">
+              <CardTitle className="text-base sm:text-lg">Top 5 Remetentes</CardTitle>
             </CardHeader>
-            <CardContent className="h-[300px] overflow-y-auto">
-              <ul className="w-full space-y-3">
+            <CardContent className="h-[250px] sm:h-[300px] p-2 sm:p-6 overflow-y-auto">
+              <ul className="w-full space-y-2">
                 {topSenders.map(({ sender, sender_email, count }, i) => (
                   <li
                     key={i}
                     onClick={() =>
-                      navigate(`/sender-emails?sender=${ (sender_email)}`)
+                      navigate(`/sender-emails?sender=${encodeURIComponent(sender_email)}`)
                     }
-                    className="flex justify-between items-center border-b pb-2 text-sm cursor-pointer hover:bg-accent/40 p-2 rounded-md transition"
+                    className="flex justify-between items-center border-b pb-2 text-xs sm:text-sm cursor-pointer hover:bg-accent/40 p-2 rounded-md transition"
                   >
-                    <span className="font-medium break-words">
-                      {i + 1}. {sender}
-                    </span>
-                    <span className="text-lg font-bold text-primary">
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium truncate block">
+                        {i + 1}. {sender}
+                      </span>
+                      <span className="text-muted-foreground text-xs truncate block">
+                        {sender_email}
+                      </span>
+                    </div>
+                    <span className="text-lg sm:text-xl font-bold text-primary ml-2">
                       {count}
                     </span>
                   </li>
