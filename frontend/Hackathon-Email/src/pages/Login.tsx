@@ -127,7 +127,7 @@ export default function Login() {
                 onClick={() => navigate("/funcionarios")}
               >
                 <Users className="mr-2 h-4 w-4" />
-                Acessar cadastro de funcionários cadastrados
+                Acessar lista de funcionários cadastrados
               </Button>
             </div>
           </CardContent>
