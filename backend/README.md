@@ -14,7 +14,7 @@ Este é o serviço de backend para o Sistema de Gerenciamento de Emails. Ele foi
 
 O projeto segue uma estrutura modular para organizar a lógica da aplicação:
 
-```
+```plaintext
 backend/
 ├── api/
 │   ├── __init__.py
@@ -22,8 +22,21 @@ backend/
 │   ├── emails.py       # Blueprint para os endpoints de emails
 │   └── sync.py         # Blueprint para o endpoint de sincronização
 │
+├── models/
+│   ├── __init__.py
+│   ├── email.py        # Modelo de dados para a entidade Email
+│   └── funcionario.py  # Modelo de dados para a entidade Funcionario
+│
+├── repositories/
+│   ├── __init__.py
+│   ├── email_repository.py      # Abstração do acesso a dados de Email no Firestore
+│   └── funcionario_repository.py # Abstração do acesso a dados de Funcionario
+│
 ├── services/
-│   └── firestore_client.py # Lógica de conexão com o Firestore
+│   ├── __init__.py
+│   ├── analytics_service.py # Lógica de negócio para o dashboard
+│   ├── email_service.py     # Lógica de negócio para emails
+│   └── firestore_client.py  # Utilitário para obter o cliente do Firestore
 │
 ├── utils/
 │   └── scheduler.py      # Configuração do agendador de tarefas

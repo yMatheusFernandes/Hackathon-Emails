@@ -154,6 +154,8 @@ export default function AllEmails() {
                     <Badge className={getStatusColor(email.status)}>
                       {email.status}
                     </Badge>
+                    {email.category && <Badge variant="outline">{email.category}</Badge>}
+                    {email.state && <Badge variant="outline">{email.state}</Badge>}
                   </div>
 
                   <p className="text-sm text-muted-foreground">

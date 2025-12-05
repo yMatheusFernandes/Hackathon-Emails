@@ -45,7 +45,8 @@ class EmailService:
             self.funcionario_service.register_email_sent(
                 email_remetente=email_remetente,
                 nome_remetente=nome_remetente,
-                email_id=email.id
+                email_id=email.id,
+                ativo=True
             )
         
         return email

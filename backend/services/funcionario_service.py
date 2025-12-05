@@ -20,7 +20,8 @@ class FuncionarioService:
             funcionario = Funcionario(
                 email=email,
                 nome=nome,
-                total_emails=0
+                total_emails=0,
+                ativo=True
             )
             funcionario = self.repository.create(funcionario)
             print(f"✨ Novo funcionário criado: {email}")

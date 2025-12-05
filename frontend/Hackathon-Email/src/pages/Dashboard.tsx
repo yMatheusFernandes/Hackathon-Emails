@@ -339,6 +339,7 @@ useEffect(() => {
     setTopSenders(
       data.top_remetentes.map((item: any) => ({
         sender: item.nome,
+        sender_email: item.email,
         count: item.total_emails,
       }))
     );
@@ -817,11 +818,11 @@ useEffect(() => {
             <CardHeader><CardTitle>Top 5 Remetentes</CardTitle></CardHeader>
             <CardContent className="h-[300px] overflow-y-auto">
               <ul className="w-full space-y-3">
-                {topSenders.map(({ sender, count }, i) => (
+                {topSenders.map(({ sender, sender_email, count }, i) => (
                   <li
                     key={i}
                     onClick={() =>
-                      navigate(`/all-emails?sender=${encodeURIComponent(sender)}`)
+                      navigate(`/sender-emails?sender=${ (sender_email)}`)
                     }
                     className="flex justify-between items-center border-b pb-2 text-sm cursor-pointer hover:bg-accent/40 p-2 rounded-md transition"
                   >

@@ -124,14 +124,51 @@ export async function deleteEmailAPI(emailId: string) {
   }
 }
 
+export async function getFuncionarios() {
+  try {
+    const res = await api.get(`/api/funcionarios`);
+    return res.data;
+  } catch (err) {
+    console.error("Erro ao buscar funcionários:", err);
+    throw err;
+  }
+}
+
+
+// Não funciona, é apenas para visualização
+export async function createFuncionario() {
+  try {
+    const res = await api.get(`/api/funcionarios`);
+    return res.data;
+  } catch (err) {
+    console.error("Erro ao buscar funcionários:", err);
+    throw err;
+  }
+}
+
+// Não funciona, é apenas para visualização
+export async function updateFuncionario() {
+  try {
+    const res = await api.get(`/api/funcionarios`);
+    return res.data;
+  } catch (err) {
+    console.error("Erro ao buscar funcionários:", err);
+    throw err;
+  }
+}
+
+// Não funciona, é apenas para visualização
+export async function deleteFuncionario() {
+  try {
+    const res = await api.get(`/api/funcionarios`);
+    return res.data;
+  } catch (err) {
+    console.error("Erro ao buscar funcionários:", err);
+    throw err;
+  }
+}
+
+
 
 // Exporte tudo junto se quiser usar "import * as api"
-export default {
-  fetchDashboardStats,
-  fetchEmails,
-  fetchEmailsPending,
-  classifyEmail,
-  fetchEmailById,
-  createEmail,
-  deleteEmailAPI,
-};
+export default api;
