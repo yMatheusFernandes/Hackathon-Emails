@@ -7,6 +7,7 @@ O **Sistema de Gestão de E-mails** foi desenvolvido com o objetivo de organizar
 O sistema resolve esse problema capturando automaticamente os e-mails enviados para um endereço específico do sistema, registrando-os em uma **base de dados centralizada**. Além disso, permite que os colaboradores adicionem informações complementares, como **Estado** e **Município** relacionados ao envio, e oferece ferramentas de **análise e visualização** por meio de dashboards e relatórios. Para maior flexibilidade, também é possível realizar o **cadastro manual de e-mails**.
 
 Com isso, o sistema proporciona:
+
 - **Maior controle** sobre a comunicação corporativa;
 - **Otimização de processos internos**;
 - **Rastreamento e organização** de mensagens enviadas;
@@ -77,12 +78,14 @@ Siga os passos abaixo para configurar e executar o ambiente de desenvolvimento l
 ### 2. Instalação
 
 a. **Clone o repositório** e navegue até a pasta do backend:
+
    ```bash
-   git clone <url-do-repositorio>
+   git clone <https://github.com/yMatheusFernandes/Hackathon-Emails>
    cd Hackathon-Emails/backend
    ```
 
 b. **Crie e ative um ambiente virtual**:
+
    ```bash
    # Windows
    python -m venv venv
@@ -94,15 +97,17 @@ b. **Crie e ative um ambiente virtual**:
    ```
 
 c. **Instale as dependências**:
+
    ```bash
    pip install -r requirements.txt
    ```
 
 d. **Configure as credenciais do Firebase**:
-   - Vá para o seu projeto no console do Firebase.
-   - Navegue até "Configurações do projeto" > "Contas de serviço".
-   - Clique em "Gerar nova chave privada" e baixe o arquivo JSON.
-   - Renomeie o arquivo para `credentials.json` e coloque-o na raiz da pasta `backend/`.
+
+- Vá para o seu projeto no console do Firebase.
+- Navegue até "Configurações do projeto" > "Contas de serviço".
+- Clique em "Gerar nova chave privada" e baixe o arquivo JSON.
+- Renomeie o arquivo para `credentials.json` e coloque-o na raiz da pasta `backend/`.
 
    > **⚠️ Atenção**: Nunca adicione o arquivo `credentials.json` ao controle de versão (Git). Certifique-se de que ele está listado no seu arquivo `.gitignore`.
 
@@ -123,6 +128,7 @@ A API expõe os seguintes endpoints:
 - `GET /`
   - **Descrição**: Retorna uma mensagem de boas-vindas e a lista de endpoints disponíveis.
   - **Resposta**:
+
     ```json
     {
       "message": "Email Management System API",
@@ -162,56 +168,57 @@ Certifique-se de ter instalado:
 - **Node.js 18+**
 - **npm** ou **yarn**
 
-Verificar versões instaladas:
+
+### Verificar versões instaladas
 
 ```sh
 node -v
 npm -v
-2. Clonar o Repositório
-sh
-Copiar código
-git clone https://github.com/SEU_USUARIO/SEU_REPOSITORIO.git
+```
+2. Clonar o Rep
+```sh
+git clone https://github.com/yMatheusFernandes/Hackathon-Emails
 cd SEU_REPOSITORIO/frontend
+```
 3. Instalar Dependências
-sh
-Copiar código
+```sh
+
 npm install
 ou
 
-sh
-Copiar código
 yarn install
+```
 4. Variáveis de Ambiente
-Crie um arquivo:
+Crie um arquivo chamado:
 
-bash
-Copiar código
+```sh
 .env
+```
 E configure:
 
-env
-Copiar código
+```sh
 VITE_API_URL=https://sua-api.com
+```
 Essa variável aponta para o backend Flask.
 
 5. Rodar o Projeto
-sh
-Copiar código
+```sh
 npm run dev
-A aplicação ficará disponível normalmente em:
+```
+A aplicação ficará disponível em:
 
-arduino
-Copiar código
+```sh
 http://localhost:5173
+```
 Rotas Protegidas (Protected Routes)
-Para garantir que apenas usuários autenticados acessem áreas internas, o frontend utiliza um sistema robusto de rotas protegidas implementado com React Router, Context API e JWT.
+Para garantir que apenas usuários autenticados acessem áreas internas, o frontend utiliza React Router, Context API e JWT.
 
 Funcionamento Geral
 O usuário realiza login.
 
 O backend retorna um JWT válido.
 
-O token é armazenado localmente (localStorage).
+O token é armazenado no localStorage.
 
 Todas as rotas protegidas verificam:
 
@@ -219,17 +226,13 @@ se o token existe,
 
 se ainda está válido,
 
-e se o usuário está autenticado no contexto.
+se o usuário está autenticado no contexto.
 
-Se qualquer condição falhar:
+Se alguma verificação falhar: redireciona para /login.
 
-o usuário é redirecionado para /login.
-
-Estrutura Central
-O controle é implementado em um componente ProtectedRoute, por exemplo:
-
+Estrutura Central (ProtectedRoute)
 tsx
-Copiar código
+```sh
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -238,12 +241,12 @@ export function ProtectedRoute({ children }: { children: JSX.Element }) {
 
   return isAuthenticated ? children : <Navigate to="/login" replace />;
 }
+```
 Uso nas Rotas
-tsx
-Copiar código
+```sh
 <Routes>
   <Route path="/login" element={<Login />} />
-  
+
   <Route
     path="/dashboard"
     element={
@@ -262,16 +265,17 @@ Copiar código
     }
   />
 </Routes>
+```
 Benefícios da Implementação
-Evita acesso não autorizado a telas internas.
+Impede acesso não autorizado.
 
-Impede navegação manual via URL.
+Evita navegação manual via URL.
 
-Garante consistência entre estado global e token.
+Mantém sincronização entre estado global e token.
 
 Redireciona automaticamente após logout.
 
-Previne problemas de segurança e vazamento de dados.
+Aumenta segurança e proteção de dados.
 
 Principais Funcionalidades do Frontend
 1. Autenticação
@@ -279,32 +283,31 @@ Login com validação em tempo real.
 
 Armazenamento seguro do token.
 
-Redirecionamento automático após autenticação.
+Redirecionamento pós-autenticação.
 
 2. Dashboard Analítico
 Gráficos dinâmicos com Recharts.
 
-Indicadores atualizados em tempo real.
+Indicadores em tempo real.
 
 Filtros por período, colaborador e localização.
 
 3. Gestão de E-mails
-Tabela com paginação, filtros, busca e ordenação.
+Tabela com paginação, busca e filtros.
 
 Edição de Estado e Município.
 
-Cadastro manual com validações (React Hook Form + Zod).
+Cadastro manual (React Hook Form + Zod).
 
 4. UI/UX
 Layout responsivo (mobile-first).
 
-Componentes consistentes com Shadcn/UI.
+Componentes Shadcn/UI.
 
-Feedback visual: skeletons, loading, erros, toasts.
+Skeletons, toasts, loaders e estados de erro.
 
 Estrutura de Pastas
-bash
-Copiar código
+```sh
 src/
 ├─ components/        # Componentes reutilizáveis
 ├─ pages/             # Páginas principais do sistema
@@ -312,25 +315,22 @@ src/
 ├─ contexts/          # Contextos globais (auth, theme, etc.)
 ├─ hooks/             # Hooks personalizados
 ├─ routes/            # Arquivos de rotas e Protected Routes
-├─ types/             # Tipos utilizados em toda a aplicação
+├─ types/             # Tipos usados na aplicação
 ├─ utils/             # Funções auxiliares
 └─ assets/            # Logos, ícones e imagens
 Tecnologias Utilizadas
 Tecnologia	Uso no Projeto
-React	Base da interface
-TypeScript	Tipagem estática e segurança
-Vite	Build leve e rápido
-Tailwind CSS	Estilização e layout
+React	Interface principal
+TypeScript	Tipagem estática
+Vite	Build rápido e moderno
+Tailwind CSS	Estilização
 Shadcn/UI	Componentes reutilizáveis
 React Router	Navegação e rotas protegidas
 Axios	Requisições HTTP
 Recharts	Gráficos e visualizações
 React Hook Form	Formulários performáticos
-Zod	Validação forte de esquemas
+Zod	Validação de esquemas
+```
 
 Considerações Finais
 O frontend foi planejado para entregar eficiência, clareza e usabilidade. Com uma arquitetura modular e tecnologias modernas, o sistema mantém-se escalável, fácil de evoluir e alinhado às boas práticas recomendadas pelo mercado.
-
-
-
-
