@@ -215,21 +215,9 @@ Para garantir que apenas usuários autenticados acessem áreas internas, o front
 
 Funcionamento Geral
 O usuário realiza login.
-
-O backend retorna um JWT válido.
-
-O token é armazenado no localStorage.
-
-Todas as rotas protegidas verificam:
-
-se o token existe,
-
-se ainda está válido,
-
-se o usuário está autenticado no contexto.
-
-Se alguma verificação falhar: redireciona para /login.
-
+O backend retorna um JWT válido.O token é armazenado no localStorage.
+Todas as rotas protegidas verificam:se o token existe,se ainda está válido,
+se o usuário está autenticado no contexto.Se alguma verificação falhar: redireciona para /login.
 Estrutura Central (ProtectedRoute)
 tsx
 ```sh
@@ -269,42 +257,21 @@ Uso nas Rotas
 Benefícios da Implementação
 Impede acesso não autorizado.
 
-Evita navegação manual via URL.
-
-Mantém sincronização entre estado global e token.
-
-Redireciona automaticamente após logout.
-
-Aumenta segurança e proteção de dados.
-
+Evita navegação manual via URL.Mantém sincronização entre estado global e token.
+Redireciona automaticamente após logout.Aumenta segurança e proteção de dados.
 Principais Funcionalidades do Frontend
+
 1. Autenticação
-Login com validação em tempo real.
-
-Armazenamento seguro do token.
-
-Redirecionamento pós-autenticação.
+Login com validação em tempo real.Armazenamento seguro do token.Redirecionamento pós-autenticação.
 
 2. Dashboard Analítico
-Gráficos dinâmicos com Recharts.
-
-Indicadores em tempo real.
-
-Filtros por período, colaborador e localização.
+Gráficos dinâmicos com Recharts.Indicadores em tempo real.Filtros por período, colaborador e localização.
 
 3. Gestão de E-mails
-Tabela com paginação, busca e filtros.
-
-Edição de Estado e Município.
-
-Cadastro manual (React Hook Form + Zod).
+Tabela com paginação, busca e filtros.Edição de Estado e Município.Cadastro manual (React Hook Form + Zod).
 
 4. UI/UX
-Layout responsivo (mobile-first).
-
-Componentes Shadcn/UI.
-
-Skeletons, toasts, loaders e estados de erro.
+Layout responsivo (mobile-first).Componentes Shadcn/UI.Skeletons, toasts, loaders e estados de erro.
 
 Estrutura de Pastas
 ```sh
