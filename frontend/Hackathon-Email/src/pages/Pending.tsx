@@ -289,7 +289,7 @@ export default function Pending() {
                           {BRAZILIAN_STATES.map((state) => (
                             <SelectItem key={state.code} value={state.code}>
                               <div className="flex items-center gap-2 py-1">
-                                <span className="font-mono bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-xs">
+                                <span className="font-mono bg-blue-500 dark:bg-gray-800 px-2 py-1 rounded text-xs">
                                   {state.code}
                                 </span>
                                 <span className="text-xs sm:text-sm">{state.name}</span>
