@@ -8,7 +8,7 @@ from typing import List
 class EmailService:
     """Service com lógica de negócio"""
     
-    def __init__(self, repository: EmailRepository, funcionario_service: FuncionarioService = None):
+    def __init__(self, repository: EmailRepository, funcionario_service: FuncionarioService):
         self.repository = repository
         self.funcionario_service = funcionario_service
         self.email_parser = EmailParser()
@@ -80,6 +80,39 @@ class EmailService:
             raise ValueError(f"Email {email_id} não encontrado")
         return email
     
+    def update_email(self, email_id: str, data: dict) -> Email:
+        """Atualiza email"""
+
+        email = self.repository.find_by_id(email_id)
+        if not email:
+            raise Exception("Email não encontrado")
+
+        # Atualizar somente os campos recebidos
+        if "assunto" in data:
+            email.assunto = data["assunto"]
+
+        if "categoria" in data:
+            email.categoria = data["categoria"]
+
+        if "estado" in data:
+            email.estado = data["estado"]
+
+        if "municipio" in data:
+            email.municipio = data["municipio"]
+
+        if "corpo" in data:
+            email.corpo = data["corpo"]
+
+        if "classificado" in data:
+            email.classificado = data["classificado"]
+
+        # Salva no banco
+        updated_email = self.repository.update(email)
+
+        return updated_email
+
+    
+
     def delete_email(self, email_id: str):
         """Exclui email"""
         email = self.repository.find_by_id(email_id)

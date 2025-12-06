@@ -1,6 +1,8 @@
 # api/emails.py
 from flask import Blueprint, request, jsonify
 from services.email_service import EmailService
+from services.funcionario_service import FuncionarioService
+from repositories.funcionario_repository import FuncionarioRepository
 from repositories.email_repository import EmailRepository
 from services.firestore_client import get_firestore_client
 from datetime import datetime
@@ -11,7 +13,9 @@ def get_service():
     """Helper: cria service"""
     db = get_firestore_client()
     repo = EmailRepository(db)
-    return EmailService(repo)
+    func_repo = FuncionarioRepository(db)
+    func_service = FuncionarioService(func_repo)
+    return EmailService(repo, func_service)
 
 @emails_bp.route('/', methods=['GET'])
 def list_emails():
@@ -75,6 +79,7 @@ def create_email():
             'data': email.to_dict()
         }), 201
     except Exception as e:
+        print(e)
         return jsonify({'success': False, 'error': str(e)}), 400
 
 @emails_bp.route('/<email_id>/classify', methods=['PUT'])
@@ -98,7 +103,19 @@ def classify_email(email_id):
         }), 200
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
-    
+
+@emails_bp.route('/<email_id>', methods=['PUT'])
+def update_email(email_id):
+    """Atualizar email"""
+    try:
+        data = request.get_json()
+        service = get_service()
+        service.update_email(email_id=email_id, data = data)
+        return  jsonify({'success': True}), 200 
+    except Exception as e:
+        print(str(e))
+        return jsonify({'success': False, 'error': str(e)}), 400
+
 @emails_bp.route('/<email_id>', methods=['DELETE'])
 def delete_email(email_id):
     """Excluir email"""

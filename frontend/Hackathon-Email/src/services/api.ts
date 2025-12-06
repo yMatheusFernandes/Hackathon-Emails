@@ -124,6 +124,17 @@ export async function deleteEmailAPI(emailId: string) {
   }
 }
 
+export async function editEmailAPI(emailId: string, data: any) {
+  try {
+    const res = await api.put(`api/emails/${emailId}`, data);
+    return res.data;
+  } catch (err) {
+    console.error("Erro ao editar e-mail:", err);
+    throw err;
+  }
+}
+
+
 export async function getFuncionarios() {
   try {
     const res = await api.get(`/api/funcionarios`);

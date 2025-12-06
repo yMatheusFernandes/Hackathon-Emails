@@ -6,12 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Eye, Search, X, Filter, Mail } from "lucide-react";
 import { 
-  getEmails, 
   type Email,
   BRAZILIAN_STATES,
-  getStateName,
-  getEmailsByState
+  getStateName
 } from "@/lib/emailStorage";
+
+import { fetchEmails } from "@/services/api";     
+
+
 import {
   Select,
   SelectContent,
@@ -39,17 +41,30 @@ export default function AllEmails() {
 
   // Carregar emails do localStorage
   useEffect(() => {
-    const loadEmails = () => {
+     async function loadEmails() {
       try {
-        const allEmails = getEmails();
-        setEmails(allEmails);
+        const result = await fetchEmails();
+        const resultEmails: Email[] = result.data.map((e: any) => ({
+          id: e.id,
+          subject: e.assunto,
+          sender: e.remetente,
+          receiver: e.destinatario,
+          content: e.corpo,
+          date: e.data,
+          status: e.classificado ? "classified" : "pending",
+          state: e.estado,
+          city: e.municipio,
+          category: e.categoria || "",   // ainda não vem da API
+          tags: [],
+        })); 
+        setEmails(resultEmails);
       } catch (err) {
         console.error("Erro ao carregar emails:", err);
       }
       setSenderFilter(urlSender);
-    };
+    }
     loadEmails();
-  }, [location.search, urlSender]);
+  }, [location.search]);
 
   // Filtrar emails
   const filteredEmails = emails.filter((email) => {
@@ -69,7 +84,7 @@ export default function AllEmails() {
         email.sender.toLowerCase().includes(searchLower) ||
         email.subject.toLowerCase().includes(searchLower) ||
         email.content.toLowerCase().includes(searchLower) ||
-        (email.recipient && email.recipient.toLowerCase().includes(searchLower)) ||
+        (email.receiver && email.receiver.toLowerCase().includes(searchLower)) ||
         (email.city && email.city.toLowerCase().includes(searchLower)) ||
         false
       );
@@ -200,7 +215,6 @@ export default function AllEmails() {
                   <SelectItem value="all">Todos os status</SelectItem>
                   <SelectItem value="pending">Pendentes</SelectItem>
                   <SelectItem value="classified">Classificados</SelectItem>
-                  <SelectItem value="archived">Arquivados</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -402,7 +416,7 @@ export default function AllEmails() {
                       <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <span className="font-medium">Para:</span>
-                          <span className="truncate">{email.recipient}</span>
+                          <span className="truncate">{email.receiver}</span>
                         </div>
                         <div className="hidden sm:block">•</div>
                         <div>

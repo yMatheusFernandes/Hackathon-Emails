@@ -27,7 +27,7 @@ import {
   RotateCcw,
   Loader2,
 } from "lucide-react";
-import { deleteEmailAPI, fetchEmailById } from "@/services/api";
+import { deleteEmailAPI, fetchEmailById, editEmailAPI } from "@/services/api";
 
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -59,6 +59,7 @@ export default function EmailDetail() {
     subject: "",
     category: "",
     state: "",
+    city: "",
     tags: "",
     content: "",
   });
@@ -94,18 +95,20 @@ export default function EmailDetail() {
           date: e.data ?? e.date ?? new Date().toISOString(),
           status: e.classificado === true ? "classified" : "pending",
           state: e.estado ?? "",
+          city: e.municipio ?? "",
           category: e.categoria ?? "",
           priority: e.priority ?? "medium",
           tags: Array.isArray(e.tags) ? e.tags : (e.tags ? [e.tags] : []),
         };
 
         setEmail(normalized);
-        
+
         // Inicializar formulário de edição
         setEditForm({
           subject: normalized.subject,
           category: normalized.category || "",
           state: normalized.state || "",
+          city: normalized.city || "",
           tags: normalized.tags.join(", "),
           content: normalized.content,
         });
@@ -147,113 +150,7 @@ export default function EmailDetail() {
     }
   };
 
-  const handleReclassify = async () => {
-    if (!email || !id) return;
-    
-    setIsReclassifying(true);
 
-    try {
-      // Primeiro: Atualizar localmente para feedback imediato
-      const originalEmail = { ...email };
-      
-      // Atualizar status localmente
-      setEmail({
-        ...email,
-        status: "pending",
-        category: "",
-      });
-
-      // Tentar enviar para a API
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-      
-      // Tentar diferentes endpoints e formatos
-      const endpoints = [
-        `${apiUrl}/api/emails/${id}`,
-        `${apiUrl}/api/emails/${id}/status`,
-        `${apiUrl}/emails/${id}`,
-      ];
-      
-      const payloads = [
-        { classificado: false, categoria: null },
-        { status: 'pending', category: '' },
-        { classified: false, category: null },
-      ];
-      
-      let success = false;
-      
-      for (let i = 0; i < endpoints.length; i++) {
-        try {
-          console.log(`Tentando endpoint: ${endpoints[i]}`);
-          const response = await fetch(endpoints[i], {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payloads[i]),
-          });
-          
-          if (response.ok) {
-            success = true;
-            console.log(`Sucesso com endpoint ${i}`);
-            break;
-          }
-        } catch (error) {
-          console.log(`Endpoint ${i} falhou, tentando próximo...`);
-          continue;
-        }
-      }
-      
-      // Se PUT não funcionar, tentar PATCH
-      if (!success) {
-        try {
-          const response = await fetch(`${apiUrl}/api/emails/${id}`, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ classificado: false }),
-          });
-          
-          if (response.ok) {
-            success = true;
-          }
-        } catch (error) {
-          console.log('PATCH também falhou');
-        }
-      }
-
-      toast({
-        title: success ? "✓ E-mail enviado para Pendentes" : "⚠ E-mail movido (localmente)",
-        description: success 
-          ? `"${email.subject}" foi removido do histórico e agora aparece como pendente.`
-          : `"${email.subject}" foi movido localmente. Os dados podem não estar sincronizados com o servidor.`,
-        variant: success ? "default" : "destructive", // ✅ CORRIGIDO: "warning" → "destructive"
-        duration: 4000,
-      });
-
-      // Redirecionar para a página de pendentes após um breve delay
-      setTimeout(() => {
-        navigate("/pending");
-      }, 1500);
-
-    } catch (err) {
-      console.error('Erro completo:', err);
-      
-      // Reverter mudanças locais em caso de erro
-      if (email) {
-        setEmail({ ...email });
-      }
-      
-      toast({
-        title: "Erro ao reclassificar",
-        description: "Não foi possível enviar o e-mail para pendentes. Por favor, tente novamente.",
-        variant: "destructive",
-        duration: 5000,
-      });
-    } finally {
-      setIsReclassifying(false);
-    }
-  };
 
   const handleSaveEdit = async () => {
     if (!email || !id) return;
@@ -264,24 +161,14 @@ export default function EmailDetail() {
         assunto: editForm.subject,
         categoria: editForm.category || null,
         estado: editForm.state || null,
+        municipio: editForm.city || null,
+        corpo: editForm.content,
         tags: editForm.tags.split(",").map(tag => tag.trim()).filter(tag => tag.length > 0),
         classificado: email.status === "classified", // Manter o status atual
       };
 
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-      const response = await fetch(`${apiUrl}/api/emails/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatedData),
-      });
-
-      if (!response.ok) {
-        throw new Error('Falha ao atualizar e-mail');
-      }
-
-      const result = await response.json();
+      await editEmailAPI(id, updatedData);
+      
 
       // Atualizar email localmente
       setEmail({
@@ -289,6 +176,7 @@ export default function EmailDetail() {
         subject: editForm.subject,
         category: editForm.category || "",
         state: editForm.state || "",
+        city: editForm.city || "",
         tags: editForm.tags.split(",").map(tag => tag.trim()).filter(tag => tag.length > 0),
         content: editForm.content,
       });
@@ -315,6 +203,7 @@ export default function EmailDetail() {
         subject: email.subject,
         category: email.category || "",
         state: email.state || "",
+        city: email.city || "",
         tags: email.tags.join(", "),
         content: email.content,
       });
@@ -363,9 +252,9 @@ export default function EmailDetail() {
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => navigate(-1)}
             className="h-9 w-9 sm:h-10 sm:w-10 p-0"
           >
@@ -380,33 +269,13 @@ export default function EmailDetail() {
             </p>
           </div>
         </div>
-        
+
         <div className="flex flex-col sm:flex-row gap-2">
           {!isEditing ? (
             <>
-              {email.status === "classified" && (
-                <Button 
-                  variant="outline" 
-                  onClick={handleReclassify}
-                  size="sm"
-                  disabled={isReclassifying}
-                  className="w-full sm:w-auto bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-200 disabled:opacity-50"
-                >
-                  {isReclassifying ? (
-                    <>
-                      <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
-                      <span className="text-xs sm:text-sm">Processando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <RotateCcw className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                      <span className="text-xs sm:text-sm">Enviar para Pendentes</span>
-                    </>
-                  )}
-                </Button>
-              )}
-              <Button 
-                variant="outline" 
+
+              <Button
+                variant="outline"
                 onClick={() => setIsEditing(true)}
                 size="sm"
                 className="w-full sm:w-auto"
@@ -417,8 +286,8 @@ export default function EmailDetail() {
             </>
           ) : (
             <>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={handleCancelEdit}
                 size="sm"
                 className="w-full sm:w-auto"
@@ -426,7 +295,7 @@ export default function EmailDetail() {
                 <X className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                 <span className="text-xs sm:text-sm">Cancelar</span>
               </Button>
-              <Button 
+              <Button
                 onClick={handleSaveEdit}
                 size="sm"
                 className="w-full sm:w-auto"
@@ -439,8 +308,8 @@ export default function EmailDetail() {
 
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button 
-                variant="destructive" 
+              <Button
+                variant="destructive"
                 size="sm"
                 className="w-full sm:w-auto"
               >
@@ -459,8 +328,8 @@ export default function EmailDetail() {
                 <AlertDialogCancel className="w-full sm:w-auto order-2 sm:order-1">
                   Cancelar
                 </AlertDialogCancel>
-                <AlertDialogAction 
-                  onClick={handleDelete} 
+                <AlertDialogAction
+                  onClick={handleDelete}
                   className="bg-destructive text-destructive-foreground w-full sm:w-auto order-1 sm:order-2"
                 >
                   Excluir
@@ -488,7 +357,7 @@ export default function EmailDetail() {
               <Input
                 id="subject"
                 value={editForm.subject}
-                onChange={(e) => setEditForm({...editForm, subject: e.target.value})}
+                onChange={(e) => setEditForm({ ...editForm, subject: e.target.value })}
                 className="text-sm sm:text-base"
               />
             ) : (
@@ -539,12 +408,12 @@ export default function EmailDetail() {
                 Categoria
               </div>
               {isEditing ? (
-                <Select value={editForm.category} onValueChange={(value) => setEditForm({...editForm, category: value})}>
+                <Select value={editForm.category} onValueChange={(value) => setEditForm({ ...editForm, category: value })}>
                   <SelectTrigger className="text-sm">
                     <SelectValue placeholder="Selecione uma categoria" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhuma</SelectItem>
+                    <SelectItem value="none">Nenhuma</SelectItem>
                     {/* ✅ USANDO EMAIL_CATEGORIES CENTRALIZADA */}
                     {EMAIL_CATEGORIES.map(cat => (
                       <SelectItem key={cat} value={cat.toLowerCase()}>{cat}</SelectItem>
@@ -564,12 +433,12 @@ export default function EmailDetail() {
                 Estado
               </div>
               {isEditing ? (
-                <Select value={editForm.state} onValueChange={(value) => setEditForm({...editForm, state: value})}>
+                <Select value={editForm.state} onValueChange={(value) => setEditForm({ ...editForm, state: value })}>
                   <SelectTrigger className="text-sm">
                     <SelectValue placeholder="Selecione um estado" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhum</SelectItem>
+                    <SelectItem value="none">Nenhum</SelectItem>
                     {/* ✅ USANDO BRAZILIAN_STATES CENTRALIZADA */}
                     {BRAZILIAN_STATES.map(state => (
                       <SelectItem key={state.code} value={state.code}>
@@ -584,45 +453,34 @@ export default function EmailDetail() {
                 </Badge>
               )}
             </div>
-          </div>
+            
+            <div className="space-y-2">
+              <div className="flex items-center gap-1 text-sm font-medium text-muted-foreground">
+                <MapPin className="h-3 w-3 sm:h-4 sm:w-4" />
+                Município
+              </div>
 
-          {/* TAGS */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-1 text-sm font-medium text-muted-foreground">
-              <Tag className="h-3 w-3 sm:h-4 sm:w-4" />
-              Tags
-            </div>
-            {isEditing ? (
-              <div className="space-y-2">
+              {isEditing ? (
                 <Input
-                  value={editForm.tags}
-                  onChange={(e) => setEditForm({...editForm, tags: e.target.value})}
-                  placeholder="Separe as tags por vírgula (ex: importante, trabalho, cliente)"
+                  value={editForm.city}
+                  onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                  placeholder="Digite o município"
                   className="text-sm sm:text-base"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Exemplo: importante, trabalho, cliente
-                </p>
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {email.tags && email.tags.length > 0 ? (
-                  email.tags.map((tag, index) => (
-                    <Badge key={index} variant="secondary" className="text-xs">
-                      {tag}
-                    </Badge>
-                  ))
-                ) : (
-                  <span className="text-sm text-muted-foreground">Nenhuma tag</span>
-                )}
-              </div>
-            )}
+              ) : (
+                <Badge variant={email.city ? "default" : "outline"} className="text-xs sm:text-sm">
+                  {email.city || "Não informado"}
+                </Badge>
+              )}
+            </div>
           </div>
+
+
 
           {/* STATUS */}
           <div className="space-y-2">
             <div className="text-sm font-medium text-muted-foreground">Status</div>
-            <Badge 
+            <Badge
               className={`text-xs sm:text-sm ${getStatusColor(email.status)}`}
             >
               {statusLabels[email.status] || email.status}
@@ -636,7 +494,7 @@ export default function EmailDetail() {
               <Textarea
                 id="content"
                 value={editForm.content}
-                onChange={(e) => setEditForm({...editForm, content: e.target.value})}
+                onChange={(e) => setEditForm({ ...editForm, content: e.target.value })}
                 className="min-h-[200px] text-sm sm:text-base"
                 placeholder="Digite o conteúdo do e-mail..."
               />
@@ -657,15 +515,15 @@ export default function EmailDetail() {
       {isEditing && (
         <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 sm:hidden z-50">
           <div className="flex gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={handleCancelEdit}
               className="flex-1"
             >
               <X className="h-4 w-4 mr-2" />
               Cancelar
             </Button>
-            <Button 
+            <Button
               onClick={handleSaveEdit}
               className="flex-1"
             >
