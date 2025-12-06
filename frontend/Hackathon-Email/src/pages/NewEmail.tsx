@@ -132,7 +132,7 @@ export default function NewEmail() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto animate-fade-in px-4 sm:px-6">
+    <div className="max-w-5=2xl mx-auto animate-fade-in px-4 sm:px-6">
       <div className="mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold mb-2 flex items-center gap-3">
           <Mail className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
@@ -285,11 +285,11 @@ export default function NewEmail() {
                       <SelectValue placeholder="Selecione o estado" />
                     </SelectTrigger>
                     <SelectContent className="max-h-[300px]">
-                      {/* ✅ USANDO BRAZILIAN_STATES CENTRALIZADA */}
+                      
                       {BRAZILIAN_STATES.map((state) => (
                         <SelectItem key={state.code} value={state.code}>
                           <div className="flex items-center gap-2 py-1">
-                            <span className="font-mono bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-xs">
+                            <span className="font-mono bg-blue-500 dark:bg-gray-800 px-2 py-1 rounded text-xs">
                               {state.code}
                             </span>
                             <span className="text-sm">{state.name}</span>

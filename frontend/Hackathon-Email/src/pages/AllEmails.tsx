@@ -13,7 +13,6 @@ import {
 
 import { fetchEmails } from "@/services/api";     
 
-
 import {
   Select,
   SelectContent,
@@ -48,12 +47,13 @@ export default function AllEmails() {
           id: e.id,
           subject: e.assunto,
           sender: e.remetente,
-          receiver: e.destinatario,
+          recipient: e.destinatario, // ✅ Mudei de 'receiver' para 'recipient'
           content: e.corpo,
           date: e.data,
           status: e.classificado ? "classified" : "pending",
           state: e.estado,
           city: e.municipio,
+          priority: e.prioridade || "medium", // ✅ Adicionei prioridade
           category: e.categoria || "",   // ainda não vem da API
           tags: [],
         })); 
@@ -84,7 +84,7 @@ export default function AllEmails() {
         email.sender.toLowerCase().includes(searchLower) ||
         email.subject.toLowerCase().includes(searchLower) ||
         email.content.toLowerCase().includes(searchLower) ||
-        (email.receiver && email.receiver.toLowerCase().includes(searchLower)) ||
+        (email.recipient && email.recipient.toLowerCase().includes(searchLower)) || // ✅ Mudei para recipient
         (email.city && email.city.toLowerCase().includes(searchLower)) ||
         false
       );
@@ -416,7 +416,7 @@ export default function AllEmails() {
                       <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <span className="font-medium">Para:</span>
-                          <span className="truncate">{email.receiver}</span>
+                          <span className="truncate">{email.recipient}</span> {/* ✅ Mudei para recipient */}
                         </div>
                         <div className="hidden sm:block">•</div>
                         <div>
