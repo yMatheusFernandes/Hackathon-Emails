@@ -81,6 +81,7 @@ export default function Dashboard() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [showMobileActions, setShowMobileActions] = useState(false);
+  const [isExporting, setIsExporting] = useState(false); // Nova state para controle
 
   const [stats, setStats] = useState({
     total: 0,
@@ -107,19 +108,27 @@ export default function Dashboard() {
   const gerarPreview = async () => {
     if (!exportRef.current) return alert("Seção do dashboard não encontrada!");
     try {
+      setIsExporting(true); // Ativar modo exportação
+      
+      // Aguardar um momento para que o DOM seja atualizado
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       const canvas = await html2canvas(exportRef.current, {
         scale: 1.5,
         useCORS: true,
         allowTaint: true,
-        
+        backgroundColor: '#ffffff',
+        logging: false,
       });
+      
       const imgData = canvas.toDataURL("image/png");
       setPreviewImage(imgData);
       setIsPreviewOpen(true);
+      setIsExporting(false); // Desativar modo exportação
     } catch (error) {
       console.error("Erro ao gerar preview:", error);
       alert("Erro ao gerar preview do relatório");
+      setIsExporting(false);
     }
   };
 
@@ -129,12 +138,17 @@ export default function Dashboard() {
       return;
     }
     try {
+      setIsExporting(true);
       await new Promise((resolve) => setTimeout(resolve, 1500));
+      
       const canvas = await html2canvas(exportRef.current, {
         scale: 2,
         allowTaint: true,
         useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
       });
+      
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF("p", "mm", "a4");
       const pageWidth = pdf.internal.pageSize.getWidth();
@@ -160,9 +174,11 @@ export default function Dashboard() {
       }
       pdf.save("dashboard.pdf");
       setIsPreviewOpen(false);
+      setIsExporting(false);
     } catch (error) {
       console.error("Erro ao gerar PDF:", error);
       alert("Erro ao gerar PDF");
+      setIsExporting(false);
     }
   };
 
@@ -220,8 +236,6 @@ export default function Dashboard() {
           setChartData([
             { name: "Pendentes", value: 320, color: COLORS.pending },
             { name: "Classificados", value: 780, color: COLORS.classified },
-            { name: "Arquivados", value: 85, color: COLORS.archived },
-            { name: "Urgentes", value: 45, color: COLORS.urgent },
           ]);
 
           setDailyTrend([
@@ -280,16 +294,6 @@ export default function Dashboard() {
             value: data.classificados || 0,
             color: COLORS.classified,
           },
-          {
-            name: "Arquivados",
-            value: data.arquivados || 0,
-            color: COLORS.archived,
-          },
-          {
-            name: "Urgentes",
-            value: data.urgentes || 0,
-            color: COLORS.urgent,
-          }
         ]);
 
         setDailyTrend([
@@ -471,9 +475,16 @@ export default function Dashboard() {
             <Plus className="h-4 w-4 mr-1" />
             <span className="hidden xs:inline">Adicionar Atalho</span>
           </Button>
-          <Button variant="outline" size="sm" onClick={gerarPreview}>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={gerarPreview}
+            disabled={isExporting}
+          >
             <FileDown className="h-4 w-4 mr-1" />
-            <span className="hidden xs:inline">Pré-visualizar PDF</span>
+            <span className="hidden xs:inline">
+              {isExporting ? "Gerando..." : "Pré-visualizar PDF"}
+            </span>
           </Button>
         </div>
 
@@ -484,9 +495,10 @@ export default function Dashboard() {
             size="sm"
             onClick={() => setShowMobileActions(!showMobileActions)}
             className="w-full"
+            disabled={isExporting}
           >
             <Menu className="h-4 w-4 mr-2" />
-            Ações
+            {isExporting ? "Processando..." : "Ações"}
           </Button>
           
           {showMobileActions && (
@@ -511,9 +523,10 @@ export default function Dashboard() {
                   gerarPreview();
                   setShowMobileActions(false);
                 }}
+                disabled={isExporting}
               >
                 <FileDown className="h-4 w-4 mr-2" />
-                Pré-visualizar PDF
+                {isExporting ? "Gerando..." : "Pré-visualizar PDF"}
               </Button>
             </div>
           )}
@@ -609,22 +622,26 @@ export default function Dashboard() {
             </div>
           ) : (
             <p className="text-center text-muted-foreground py-10 text-sm sm:text-base">
-              Gerando preview...
+              {isExporting ? "Gerando preview..." : "Preview não disponível"}
             </p>
           )}
           <DialogFooter className="pt-4 flex-col sm:flex-row gap-2">
             <Button
               variant="outline"
-              onClick={() => setIsPreviewOpen(false)}
+              onClick={() => {
+                setIsPreviewOpen(false);
+                setIsExporting(false);
+              }}
               className="w-full sm:w-auto order-2 sm:order-1"
             >
               Cancelar
             </Button>
             <Button
               onClick={gerarPDF}
+              disabled={isExporting}
               className="w-full sm:w-auto order-1 sm:order-2"
             >
-              Baixar PDF
+              {isExporting ? "Gerando PDF..." : "Baixar PDF"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -670,10 +687,14 @@ export default function Dashboard() {
         })}
       </div>
 
-      {/* GRÁFICOS */}
-      <div id="dashboard-export" ref={exportRef} className="space-y-4 sm:space-y-6">
+      {/* GRÁFICOS - ÁREA DE EXPORTAÇÃO */}
+      <div 
+        id="dashboard-export" 
+        ref={exportRef} 
+        className="space-y-4 sm:space-y-6 bg-white"
+      >
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-          {/* GRÁFICO DE PIZZA */}
+          {/* GRÁFICO DE PIZZA - APENAS CLASSIFICADOS E PENDENTES */}
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader className="p-3 sm:p-6">
               <CardTitle className="text-base sm:text-lg">
@@ -684,7 +705,9 @@ export default function Dashboard() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={chartData}
+                    data={chartData.filter(item => 
+                      item.name === "Classificados" || item.name === "Pendentes"
+                    )}
                     cx="50%"
                     cy="50%"
                     labelLine={false}
@@ -694,9 +717,11 @@ export default function Dashboard() {
                     outerRadius={70}
                     dataKey="value"
                   >
-                    {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
+                    {chartData
+                      .filter(item => item.name === "Classificados" || item.name === "Pendentes")
+                      .map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
                   </Pie>
                   <Tooltip 
                     formatter={(value) => [`${value} e-mails`, "Quantidade"]}
@@ -778,69 +803,114 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent className="h-[250px] sm:h-[300px] p-2 sm:p-6">
               <ResponsiveContainer width="100%" height="100%">
-  <BarChart 
-    data={[...topStates]
-      .sort((a, b) => b.count - a.count) // ⬅️ Ordena do maior para o menor
-      .slice(0, 5)}                      // ⬅️ Pega apenas os 5 maiores
-  >
-    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-    <XAxis
-      dataKey="state"
-      stroke="hsl(var(--muted-foreground))"
-      fontSize={12}
-    />
-    <YAxis
-      stroke="hsl(var(--muted-foreground))"
-      fontSize={12}
-    />
-    <Tooltip
-      contentStyle={{
-        backgroundColor: "hsl(var(--popover))",
-        border: "1px solid hsl(var(--border))",
-        borderRadius: "0.5rem",
-        fontSize: "12px",
-      }}
-      formatter={(value) => [`${value} e-mails`, "Quantidade"]}
-    />
-    <Bar
-      dataKey="count"
-      fill="hsl(var(--primary))"
-      name="Quantidade"
-    />
-  </BarChart>
-</ResponsiveContainer>
-
+                <BarChart 
+                  data={[...topStates]
+                    .sort((a, b) => b.count - a.count)
+                    .slice(0, 5)}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis
+                    dataKey="state"
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={12}
+                  />
+                  <YAxis
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={12}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--popover))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "0.5rem",
+                      fontSize: "12px",
+                    }}
+                    formatter={(value) => [`${value} e-mails`, "Quantidade"]}
+                  />
+                  <Bar
+                    dataKey="count"
+                    fill="hsl(var(--primary))"
+                    name="Quantidade"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
             </CardContent>
           </Card>
 
+          {/* CARD DOS REMETENTES - OTIMIZADO PARA PDF */}
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader className="p-3 sm:p-6">
               <CardTitle className="text-base sm:text-lg">Top 5 Remetentes</CardTitle>
             </CardHeader>
-            <CardContent className="h-[250px] sm:h-[300px] p-2 sm:p-6 overflow-y-auto ">
-              <ul className="w-full space-y-2">
+            <CardContent className="h-[250px] sm:h-[300px] p-2 sm:p-6">
+              <div className={`space-y-3 max-h-full ${!isExporting ? 'overflow-y-auto pr-2' : ''}`}>
                 {topSenders.slice(0, 5).map(({ sender, sender_email, count }, i) => (
-                  <li
+                  <div
                     key={i}
-                    onClick={() =>
+                    className={`flex items-center justify-between p-3 rounded-lg border ${
+                      !isExporting ? 'hover:bg-accent/50 cursor-pointer group' : ''
+                    } transition-colors`}
+                    onClick={!isExporting ? () =>
                       navigate(`/sender-emails?sender=${encodeURIComponent(sender_email)}`)
-                    }
-                    className="flex justify-between items-center border-b pb-2 text-xs sm:text-sm cursor-pointer hover:bg-accent/40 p-2 rounded-md transition"
+                    : undefined}
                   >
-                    <div className="flex-1 min-w-0">
-                      <span className="font-medium truncate block">
-                        {i + 1}. {sender}
-                      </span>
-                      <span className="text-muted-foreground text-xs truncate block">
-                        {sender_email}
-                      </span>
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      {/* NÚMERO DO RANKING */}
+                      <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm">
+                        {i + 1}
+                      </div>
+                      
+                      {/* INFORMAÇÕES DO REMETENTE - SEM TRUNCATE NO MODO EXPORTAÇÃO */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-2">
+                          <h4 className={`font-semibold text-foreground ${
+                            isExporting ? 'text-sm break-words' : 'text-sm sm:text-base truncate'
+                          }`}>
+                            {sender}
+                          </h4>
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            ({count} e-mails)
+                          </span>
+                        </div>
+                        <p className={`text-xs text-muted-foreground ${
+                          isExporting ? 'break-words mt-1' : 'truncate mt-1'
+                        }`}>
+                          {sender_email}
+                        </p>
+                      </div>
                     </div>
-                    <span className="text-lg sm:text-xl font-bold text-primary ml-2">
-                      {count}
-                    </span>
-                  </li>
+                    
+                    {/* SETA APENAS NO MODO NORMAL */}
+                    {!isExporting && (
+                      <div className="flex-shrink-0 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <svg 
+                          className="w-4 h-4 text-muted-foreground" 
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round" 
+                            strokeWidth={2} 
+                            d="M9 5l7 7-7 7" 
+                          />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
                 ))}
-              </ul>
+                
+                {/* MENSAGEM SE NÃO HOUVER DADOS */}
+                {topSenders.length === 0 && (
+                  <div className="flex flex-col items-center justify-center h-full text-center py-8">
+                    <Mail className="w-12 h-12 text-muted-foreground mb-3 opacity-50" />
+                    <p className="text-sm text-muted-foreground">
+                      Nenhum dado de remetente disponível
+                    </p>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>

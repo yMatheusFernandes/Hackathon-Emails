@@ -32,7 +32,11 @@ import {
   Filter,
   ChevronLeft,
   ChevronRight,
-  MoreVertical
+  MoreVertical,
+  Check,
+  X,
+  Power,
+  PowerOff
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -218,10 +222,27 @@ export default function Funcionarios() {
     setShowMobileMenu(null);
   };
 
+  // FUNÇÃO CORRIGIDA: Agora altera apenas o funcionário específico
   const toggleStatus = (id: string) => {
     setFuncionarios((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, status: !f.status } : f))
+      prev.map((f) => {
+        if (f.id === id) {
+          const newStatus = !f.status;
+          return { ...f, status: newStatus };
+        }
+        return f; // Retorna os outros funcionários SEM alteração
+      })
     );
+    
+    // Adiciona toast apenas uma vez
+    const funcionario = funcionarios.find((f) => f.id === id);
+    if (funcionario) {
+      toast({
+        title: !funcionario.status ? "Funcionário ativado" : "Funcionário desativado",
+        description: `${funcionario.nome} foi ${!funcionario.status ? 'ativado' : 'desativado'} com sucesso.`,
+      });
+    }
+    
     setShowMobileMenu(null);
   };
 
@@ -494,19 +515,46 @@ export default function Funcionarios() {
                               variant={f.status ? "default" : "secondary"}
                               className={f.status ? "bg-green-100 text-green-800 hover:bg-green-100" : ""}
                             >
-                              {f.status ? "Ativo" : "Inativo"}
+                              {f.status ? (
+                                <>
+                                  <Check className="h-3 w-3 mr-1" />
+                                  Ativo
+                                </>
+                              ) : (
+                                <>
+                                  <X className="h-3 w-3 mr-1" />
+                                  Inativo
+                                </>
+                              )}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
+                              {/* Botão Ativar/Desativar - Desktop */}
                               <Button
-                                variant="outline"
+                                variant={f.status ? "outline" : "default"}
                                 size="sm"
                                 onClick={() => toggleStatus(f.id)}
-                                className="h-8 w-8"
+                                className={`h-8 px-3 ${
+                                  f.status 
+                                    ? "border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700" 
+                                    : "bg-green-600 hover:bg-green-700"
+                                }`}
                               >
-                                {f.status ? "Desativar" : "Ativar"}
+                                {f.status ? (
+                                  <>
+                                    <PowerOff className="h-3 w-3 mr-1" />
+                                    Desativar
+                                  </>
+                                ) : (
+                                  <>
+                                    <Power className="h-3 w-3 mr-1" />
+                                    Ativar
+                                  </>
+                                )}
                               </Button>
+                              
+                              {/* Botão Editar - Desktop */}
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -515,13 +563,15 @@ export default function Funcionarios() {
                               >
                                 <Edit className="h-3 w-3" />
                               </Button>
+                              
+                              {/* Botão Excluir - Desktop */}
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleDelete(f.id)}
-                                className="h-8 w-8"
+                                className="h-8 w-8 text-destructive hover:text-destructive border-red-200 hover:bg-red-50"
                               >
-                                <Trash2 className="h-3 w-3 text-destructive" />
+                                <Trash2 className="h-3 w-3" />
                               </Button>
                             </div>
                           </TableCell>
@@ -570,6 +620,31 @@ export default function Funcionarios() {
                           
                           {showMobileMenu === f.id && (
                             <div className="absolute right-0 top-full mt-1 w-48 bg-popover border rounded-md shadow-lg z-50">
+                              {/* Botão Ativar/Desativar - Mobile */}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleStatus(f.id)}
+                                className={`w-full justify-start text-xs ${
+                                  f.status 
+                                    ? "text-red-600 hover:text-red-700 hover:bg-red-50" 
+                                    : "text-green-600 hover:text-green-700 hover:bg-green-50"
+                                }`}
+                              >
+                                {f.status ? (
+                                  <>
+                                    <PowerOff className="h-3 w-3 mr-2" />
+                                    Desativar
+                                  </>
+                                ) : (
+                                  <>
+                                    <Power className="h-3 w-3 mr-2" />
+                                    Ativar
+                                  </>
+                                )}
+                              </Button>
+                              
+                              {/* Botão Editar - Mobile */}
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -582,19 +657,13 @@ export default function Funcionarios() {
                                 <Edit className="h-3 w-3 mr-2" />
                                 Editar
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => toggleStatus(f.id)}
-                                className="w-full justify-start text-xs"
-                              >
-                                {f.status ? "Desativar" : "Ativar"}
-                              </Button>
+                              
+                              {/* Botão Excluir - Mobile */}
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleDelete(f.id)}
-                                className="w-full justify-start text-xs text-destructive"
+                                className="w-full justify-start text-xs text-destructive hover:text-destructive hover:bg-red-50"
                               >
                                 <Trash2 className="h-3 w-3 mr-2" />
                                 Excluir
@@ -602,6 +671,41 @@ export default function Funcionarios() {
                             </div>
                           )}
                         </div>
+                      </div>
+                      
+                      {/* Botões de ação rápida - Mobile (opcional) */}
+                      <div className="flex gap-2 mt-3 pt-3 border-t">
+                        <Button
+                          variant={f.status ? "outline" : "default"}
+                          size="sm"
+                          onClick={() => toggleStatus(f.id)}
+                          className={`flex-1 text-xs ${
+                            f.status 
+                              ? "border-red-200 text-red-600 hover:bg-red-50" 
+                              : "bg-green-600 hover:bg-green-700"
+                          }`}
+                        >
+                          {f.status ? (
+                            <>
+                              <PowerOff className="h-3 w-3 mr-1" />
+                              Desativar
+                            </>
+                          ) : (
+                            <>
+                              <Power className="h-3 w-3 mr-1" />
+                              Ativar
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenDialog(f)}
+                          className="flex-1 text-xs"
+                        >
+                          <Edit className="h-3 w-3 mr-1" />
+                          Editar
+                        </Button>
                       </div>
                     </Card>
                   ))}
